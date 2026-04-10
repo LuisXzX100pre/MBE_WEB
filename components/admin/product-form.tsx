@@ -1,11 +1,11 @@
-// components/admin/product-form.tsx
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ArrowLeft, Plus, X, Upload, ImageIcon, Loader2 } from 'lucide-react'
+import { upload } from '@vercel/blob/client'
+import { ArrowLeft, X, Upload, ImageIcon, Loader2 } from 'lucide-react'
 
 interface Category {
   id: string
@@ -42,10 +42,13 @@ interface ProductFormProps {
 }
 
 const SIZES = ['S', 'M', 'L', 'XL'] as const
+const VALID_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+const MAX_FILE_SIZE = 10 * 1024 * 1024
 
 export function ProductForm({ product, categories }: ProductFormProps) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
+
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
@@ -59,7 +62,6 @@ export function ProductForm({ product, categories }: ProductFormProps) {
     product?.images.map((img) => img.url) || []
   )
 
-  // Estado para tallas - inicializar con valores existentes o 0
   const [sizeStock, setSizeStock] = useState<Record<string, number>>(() => {
     const initial: Record<string, number> = { S: 0, M: 0, L: 0, XL: 0 }
     if (product?.sizes) {
@@ -70,7 +72,6 @@ export function ProductForm({ product, categories }: ProductFormProps) {
     return initial
   })
 
-  // Calcular stock total basado en tallas
   const totalStock = Object.values(sizeStock).reduce((sum, val) => sum + val, 0)
 
   const handleSizeStockChange = (size: string, value: string) => {
@@ -81,42 +82,67 @@ export function ProductForm({ product, categories }: ProductFormProps) {
     }))
   }
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
+  const validateFile = (file: File) => {
+    if (!VALID_TYPES.includes(file.type)) {
+      throw new Error('Solo se permiten imagenes JPG, PNG, WEBP o GIF')
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      throw new Error('Cada imagen debe pesar maximo 10MB')
+    }
+  }
+
+  const uploadSingleFile = async (file: File) => {
+    validateFile(file)
+
+    const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+    const timestamp = Date.now()
+    const randomStr = Math.random().toString(36).slice(2, 8)
+    const pathname = `products/product-${timestamp}-${randomStr}.${extension}`
+
+    const blob = await upload(pathname, file, {
+      access: 'public',
+      handleUploadUrl: '/api/upload',
+      clientPayload: JSON.stringify({
+        mimeType: file.type,
+        size: file.size,
+      }),
+    })
+
+    return blob.url
+  }
+
+  const uploadFiles = async (files: FileList | File[]) => {
+    const incomingFiles = Array.from(files)
+
+    if (images.length + incomingFiles.length > 3) {
+      throw new Error('Solo puedes subir maximo 3 imagenes')
+    }
 
     setUploading(true)
     setError('')
 
     try {
-      const uploadPromises = Array.from(files).map(async (file) => {
-        const formData = new FormData()
-        formData.append('file', file)
+      const uploadedUrls = await Promise.all(
+        incomingFiles.map((file) => uploadSingleFile(file))
+      )
 
-        const res = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        })
-
-        if (!res.ok) {
-          const data = await res.json()
-          throw new Error(data.error || 'Error al subir imagen')
-        }
-
-        const data = await res.json()
-        return data.url
-      })
-
-      const uploadedUrls = await Promise.all(uploadPromises)
-      setImages([...images, ...uploadedUrls])
+      setImages((prev) => [...prev, ...uploadedUrls])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al subir imagenes')
     } finally {
       setUploading(false)
+
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
     }
+  }
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    await uploadFiles(files)
   }
 
   const handleRemoveImage = (index: number) => {
@@ -135,41 +161,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
     const files = e.dataTransfer.files
     if (!files || files.length === 0) return
 
-    setUploading(true)
-    setError('')
-
-    try {
-      const uploadPromises = Array.from(files).map(async (file) => {
-        // Validar tipo
-        const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-        if (!validTypes.includes(file.type)) {
-          throw new Error('Solo se permiten imagenes JPG, PNG, WEBP o GIF')
-        }
-
-        const formData = new FormData()
-        formData.append('file', file)
-
-        const res = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        })
-
-        if (!res.ok) {
-          const data = await res.json()
-          throw new Error(data.error || 'Error al subir imagen')
-        }
-
-        const data = await res.json()
-        return data.url
-      })
-
-      const uploadedUrls = await Promise.all(uploadPromises)
-      setImages([...images, ...uploadedUrls])
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al subir imagenes')
-    } finally {
-      setUploading(false)
-    }
+    await uploadFiles(files)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -183,7 +175,6 @@ export function ProductForm({ product, categories }: ProductFormProps) {
         : '/api/admin/products'
       const method = product ? 'PUT' : 'POST'
 
-      // Preparar datos de tallas
       const sizes = SIZES.map((size) => ({
         size,
         stock: sizeStock[size] || 0,
@@ -229,7 +220,6 @@ export function ProductForm({ product, categories }: ProductFormProps) {
       </Link>
 
       <div className="space-y-6">
-        {/* Name */}
         <div>
           <label className="block text-sm font-medium mb-2">Nombre</label>
           <input
@@ -241,7 +231,6 @@ export function ProductForm({ product, categories }: ProductFormProps) {
           />
         </div>
 
-        {/* Description */}
         <div>
           <label className="block text-sm font-medium mb-2">Descripcion</label>
           <textarea
@@ -252,7 +241,6 @@ export function ProductForm({ product, categories }: ProductFormProps) {
           />
         </div>
 
-        {/* Price */}
         <div>
           <label className="block text-sm font-medium mb-2">Precio</label>
           <input
@@ -266,7 +254,6 @@ export function ProductForm({ product, categories }: ProductFormProps) {
           />
         </div>
 
-        {/* Tallas e Inventario */}
         <div className="bg-secondary/50 border border-border rounded-lg p-4">
           <label className="block text-sm font-medium mb-4">
             Inventario por Talla
@@ -293,7 +280,6 @@ export function ProductForm({ product, categories }: ProductFormProps) {
           </div>
         </div>
 
-        {/* Category */}
         <div>
           <label className="block text-sm font-medium mb-2">Categoria</label>
           <select
@@ -311,7 +297,6 @@ export function ProductForm({ product, categories }: ProductFormProps) {
           </select>
         </div>
 
-        {/* Status */}
         <div>
           <label className="block text-sm font-medium mb-2">Estado</label>
           <select
@@ -324,11 +309,11 @@ export function ProductForm({ product, categories }: ProductFormProps) {
           </select>
         </div>
 
-        {/* Images Upload */}
         <div>
-          <label className="block text-sm font-medium mb-2">Imagenes (maximo 3 para carrusel)</label>
-          
-          {/* Upload Zone */}
+          <label className="block text-sm font-medium mb-2">
+            Imagenes (maximo 3 para carrusel)
+          </label>
+
           <div
             onDragOver={handleDragOver}
             onDrop={handleDrop}
@@ -349,7 +334,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
               className="hidden"
               disabled={images.length >= 3}
             />
-            
+
             {uploading ? (
               <div className="flex flex-col items-center gap-2">
                 <Loader2 className="w-10 h-10 text-primary animate-spin" />
@@ -362,32 +347,36 @@ export function ProductForm({ product, categories }: ProductFormProps) {
                 </div>
                 <div>
                   <p className="text-sm font-medium">
-                    {images.length >= 3 
+                    {images.length >= 3
                       ? 'Limite de imagenes alcanzado'
                       : 'Arrastra imagenes aqui o haz clic para seleccionar'}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    JPG, PNG, WEBP o GIF - Maximo 5MB por imagen
+                    JPG, PNG, WEBP o GIF - Maximo 10MB por imagen
                   </p>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Recommended Dimensions */}
           <div className="mt-3 p-3 bg-secondary/50 rounded-lg border border-border">
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-2">
               <ImageIcon className="w-4 h-4" />
               Dimensiones recomendadas
             </p>
             <ul className="mt-2 text-xs text-muted-foreground space-y-1">
-              <li>Imagen principal: <span className="text-foreground font-medium">1200 x 1500 px</span> (ratio 4:5)</li>
-              <li>Minimo recomendado: <span className="text-foreground font-medium">800 x 1000 px</span></li>
-              <li>Formato cuadrado tambien funciona: <span className="text-foreground font-medium">1000 x 1000 px</span></li>
+              <li>
+                Imagen principal: <span className="text-foreground font-medium">1200 x 1500 px</span> (ratio 4:5)
+              </li>
+              <li>
+                Minimo recomendado: <span className="text-foreground font-medium">800 x 1000 px</span>
+              </li>
+              <li>
+                Formato cuadrado tambien funciona: <span className="text-foreground font-medium">1000 x 1000 px</span>
+              </li>
             </ul>
           </div>
 
-          {/* Current images */}
           {images.length > 0 && (
             <div className="mt-4">
               <p className="text-sm text-muted-foreground mb-2">
@@ -431,7 +420,6 @@ export function ProductForm({ product, categories }: ProductFormProps) {
           </div>
         )}
 
-        {/* Submit */}
         <div className="flex flex-col sm:flex-row gap-3">
           <button
             type="submit"
@@ -442,8 +430,8 @@ export function ProductForm({ product, categories }: ProductFormProps) {
             {loading
               ? 'Guardando...'
               : product
-              ? 'Guardar cambios'
-              : 'Crear producto'}
+                ? 'Guardar cambios'
+                : 'Crear producto'}
           </button>
           <Link
             href="/admin/productos"
