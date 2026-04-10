@@ -1,4 +1,3 @@
-// app/mis-pedidos/page.tsx
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Header } from '@/components/store/header'
@@ -9,7 +8,14 @@ import { Package, ChevronRight } from 'lucide-react'
 
 async function getUserOrders(userId: string) {
   return prisma.order.findMany({
-    where: { userId },
+    where: {
+      userId,
+      payment: {
+        is: {
+          status: 'COMPLETED',
+        },
+      },
+    },
     include: {
       items: {
         include: {

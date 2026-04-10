@@ -1,4 +1,3 @@
-// components/store/checkout-form.tsx
 'use client'
 
 import { useMemo, useState } from 'react'
@@ -158,16 +157,16 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
       }
 
       if (result.paymentIntent.status === 'succeeded') {
-        window.location.href = `/checkout/success?order_id=${data.orderId}&payment_intent=${result.paymentIntent.id}`
+        window.location.href = `/checkout/success?payment_intent=${result.paymentIntent.id}`
         return
       }
 
       if (result.paymentIntent.status === 'processing') {
-        window.location.href = `/checkout/pending?order_id=${data.orderId}&payment_intent=${result.paymentIntent.id}`
+        window.location.href = `/checkout/pending?payment_intent=${result.paymentIntent.id}`
         return
       }
 
-      window.location.href = `/checkout/failure?order_id=${data.orderId}`
+      window.location.href = `/checkout/failure?payment_intent=${result.paymentIntent.id}`
     } catch (err) {
       console.error('[stripe:checkout-form]', err)
       setError(

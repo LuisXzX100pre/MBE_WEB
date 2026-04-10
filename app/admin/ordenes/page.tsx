@@ -1,9 +1,15 @@
-// app/admin/ordenes/page.tsx
 import { prisma } from '@/lib/prisma'
 import { OrdersTable } from '@/components/admin/orders-table'
 
 async function getOrders() {
   const orders = await prisma.order.findMany({
+    where: {
+      payment: {
+        is: {
+          status: 'COMPLETED',
+        },
+      },
+    },
     include: {
       user: { select: { username: true } },
       items: {

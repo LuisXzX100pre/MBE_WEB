@@ -1,4 +1,3 @@
-// app/api/stripe/create-payment-intent/route.ts
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { stripe } from '@/lib/stripe'
@@ -99,63 +98,32 @@ export async function POST(request: Request) {
       )
     }
 
-    const fullShippingInfo = `${shippingAddress}\nTel: ${normalizePhone(phoneNumber)}\nEmail: ${email}`
-
-    const order = await prisma.order.create({
-      data: {
-        userId: user.id,
-        total,
-        status: 'PENDING',
-        shippingAddress: fullShippingInfo,
-        items: {
-          create: cart.items.map((item) => ({
-            quantity: item.quantity,
-            unitPrice: item.product.price,
-            size: item.size ?? undefined,
-            productId: item.product.id,
-          })),
-        },
-      },
-    })
-
-    await prisma.payment.create({
-      data: {
-        orderId: order.id,
-        provider: 'stripe',
-        status: 'PENDING',
-        externalReference: order.id,
-        payerEmail: email,
-      },
-    })
+    const cartSnapshot = cart.items.map((item) => ({
+      productId: item.product.id,
+      quantity: item.quantity,
+      unitPrice: item.product.price,
+      size: item.size ?? null,
+    }))
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountToStripeCents(total),
       currency: 'mxn',
       payment_method_types: ['card'],
       receipt_email: email,
-      description: `Pedido MBE ${order.id}`,
+      description: `Checkout MBE ${user.id}`,
       metadata: {
-        orderId: order.id,
         userId: user.id,
         email,
+        shippingAddress,
+        phoneNumber: normalizePhone(phoneNumber),
         cardholderName,
+        cartSnapshot: JSON.stringify(cartSnapshot),
       },
-    })
-
-    await prisma.payment.update({
-      where: { orderId: order.id },
-      data: {
-        transactionId: paymentIntent.id,
-      },
-    })
-
-    await prisma.cartItem.deleteMany({
-      where: { cartId: cart.id },
     })
 
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,
-      orderId: order.id,
+      paymentIntentId: paymentIntent.id,
     })
   } catch (error) {
     console.error('[stripe:create-payment-intent]', error)
