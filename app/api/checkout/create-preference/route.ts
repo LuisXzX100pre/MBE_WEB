@@ -2,7 +2,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
-import { getBaseUrl } from '@/lib/mercadopago'
 
 export async function POST(request: Request) {
   try {
