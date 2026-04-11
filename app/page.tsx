@@ -1,4 +1,3 @@
-// app/page.tsx
 import Link from 'next/link'
 import Image from 'next/image'
 import { Header } from '@/components/store/header'
@@ -39,25 +38,30 @@ export default async function HomePage() {
     <div className="min-h-screen flex flex-col">
       <Header />
 
-      <main className="flex-1 pt-16">
-        {/* Hero Section */}
-        <section className="relative h-[80vh] flex items-center justify-center bg-gradient-to-b from-card to-background overflow-hidden">
+      <main
+        className="flex-1"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 4rem)' }}
+      >
+        <section
+          className="relative flex items-center justify-center overflow-hidden bg-gradient-to-b from-card to-background px-4 py-10 sm:px-6 sm:py-14 lg:px-8"
+          style={{ minHeight: 'calc(100svh - 4rem)' }}
+        >
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-muted/20 via-transparent to-transparent" />
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:48px_48px] opacity-20" />
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:42px_42px] opacity-20" />
 
-          <div className="relative text-center px-4 max-w-5xl mx-auto">
-            <div className="mb-8">
+          <div className="relative mx-auto flex w-full max-w-5xl flex-col items-center text-center">
+            <div className="mb-5 sm:mb-7">
               <Image
                 src="/logo.png"
                 alt="MBE Logo"
-                width={300}
-                height={150}
-                className="object-contain mx-auto h-24 md:h-32 lg:h-40 w-auto"
+                width={340}
+                height={160}
+                className="mx-auto h-16 w-auto object-contain sm:h-20 md:h-28 lg:h-36"
                 priority
               />
             </div>
 
-            <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto mb-8">
+            <p className="mb-7 max-w-2xl text-lg text-muted-foreground sm:text-xl md:mb-8 md:text-2xl">
               "MBE Es para todos, Pero no para cualquiera."
             </p>
 
@@ -69,31 +73,31 @@ export default async function HomePage() {
 
             <Link
               href="/productos"
-              className="inline-flex items-center gap-2 px-8 py-4 bg-primary text-primary-foreground font-medium rounded-full hover:opacity-90 transition-opacity"
+              className="mt-7 inline-flex items-center gap-2 rounded-full bg-primary px-7 py-3.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 sm:px-8 sm:py-4 sm:text-base"
             >
               Ver coleccion
-              <ArrowRight className="w-5 h-5" />
+              <ArrowRight className="h-5 w-5" />
             </Link>
           </div>
         </section>
 
-        {/* Categories Section */}
         {categories.length > 0 && (
-          <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-            <h2 className="text-2xl md:text-3xl font-bold mb-8">Categorias</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 md:py-20 lg:px-8">
+            <h2 className="mb-8 text-2xl font-bold md:text-3xl">Categorias</h2>
+
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
               {categories.map((category) => (
                 <Link
                   key={category.id}
                   href={`/categorias/${category.slug}`}
-                  className="group relative aspect-square bg-card rounded-lg border border-border overflow-hidden hover:border-muted-foreground transition-colors"
+                  className="group relative aspect-square overflow-hidden rounded-2xl border border-border bg-card transition-colors hover:border-muted-foreground"
                 >
-                  <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="absolute inset-0 flex items-center justify-center p-4">
                     <div className="text-center">
-                      <h3 className="font-bold text-lg group-hover:scale-110 transition-transform">
+                      <h3 className="text-base font-bold transition-transform group-hover:scale-110 sm:text-lg">
                         {category.name}
                       </h3>
-                      <p className="text-sm text-muted-foreground mt-1">
+                      <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
                         {category._count.products} productos
                       </p>
                     </div>
@@ -104,27 +108,27 @@ export default async function HomePage() {
           </section>
         )}
 
-        {/* Featured Products Section */}
-        <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold">Ultimos productos</h2>
+        <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 md:py-20 lg:px-8">
+          <div className="mb-8 flex items-center justify-between gap-4">
+            <h2 className="text-2xl font-bold md:text-3xl">Ultimos productos</h2>
+
             <Link
               href="/productos"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+              className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               Ver todos
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
 
           {products.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
               {products.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
           ) : (
-            <div className="text-center py-20">
+            <div className="py-20 text-center">
               <p className="text-muted-foreground">
                 No hay productos disponibles aun.
               </p>
@@ -132,7 +136,6 @@ export default async function HomePage() {
           )}
         </section>
 
-        {/* CTA Section - Comunidad MBE */}
         <CommunitySection />
       </main>
 
