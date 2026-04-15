@@ -38,7 +38,7 @@ async function getNextDrop() {
       status: 'COMING_SOON',
       releaseAt: {
         not: null,
-        gte: new Date(),
+        gt: new Date(),
       },
     },
     select: {
@@ -58,10 +58,6 @@ async function getNextDrop() {
   })
 }
 
-function formatDropSubtitle(name: string, categoryName: string) {
-  return `${name} de ${categoryName} estara disponible cuando termine el contador.`
-}
-
 export default async function HomePage() {
   const [products, categories, nextDrop] = await Promise.all([
     getFeaturedProducts(),
@@ -78,7 +74,8 @@ export default async function HomePage() {
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 4rem)' }}
       >
         <section
-          className="relative flex min-h-[calc(100svh-4rem)] items-center justify-center overflow-hidden bg-gradient-to-b from-card to-background px-4 py-10 sm:px-6 sm:py-14 lg:px-8"
+          className="relative flex items-center justify-center overflow-hidden bg-gradient-to-b from-card to-background px-4 py-10 sm:px-6 sm:py-14 lg:px-8"
+          style={{ minHeight: 'calc(100svh - 4rem)' }}
         >
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-muted/20 via-transparent to-transparent" />
           <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:42px_42px] opacity-20" />
@@ -103,10 +100,7 @@ export default async function HomePage() {
               <DropCountdown
                 targetDate={nextDrop.releaseAt!.toISOString()}
                 title={nextDrop.dropName || nextDrop.name}
-                subtitle={formatDropSubtitle(
-                  nextDrop.name,
-                  nextDrop.category.name
-                )}
+                subtitle={`${nextDrop.name} estara disponible cuando termine el contador.`}
               />
             ) : (
               <div className="mx-auto w-full max-w-3xl rounded-[32px] border border-white/10 bg-white/[0.035] px-6 py-6 text-center shadow-[0_20px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl">

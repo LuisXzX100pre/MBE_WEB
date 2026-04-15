@@ -1,10 +1,12 @@
 import { notFound } from 'next/navigation'
+import Link from 'next/link'
 import { Header } from '@/components/store/header'
 import { Footer } from '@/components/store/footer'
 import { ProductCard } from '@/components/store/product-card'
 import { prisma } from '@/lib/prisma'
+import { ArrowLeft } from 'lucide-react'
 
-async function getCategory(slug: string) {
+async function getCategoryWithProducts(slug: string) {
   return prisma.category.findUnique({
     where: { slug },
     include: {
@@ -30,7 +32,7 @@ export default async function CategoryPage({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
-  const category = await getCategory(slug)
+  const category = await getCategoryWithProducts(slug)
 
   if (!category) {
     notFound()
@@ -41,29 +43,32 @@ export default async function CategoryPage({
       <Header />
 
       <main className="flex-1 pt-24 pb-20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="mb-10">
-            <p className="mb-2 text-xs uppercase tracking-[0.35em] text-muted-foreground">
-              Categoria
-            </p>
-            <h1 className="text-3xl font-black tracking-tight md:text-4xl">
-              {category.name}
-            </h1>
-            <p className="mt-3 text-muted-foreground">
-              {category.products.length} producto(s)
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Link
+            href="/categorias"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Volver a categorias
+          </Link>
+
+          <div className="mb-8">
+            <h1 className="text-3xl md:text-4xl font-bold">{category.name}</h1>
+            <p className="text-muted-foreground mt-2">
+              {category.products.length} productos
             </p>
           </div>
 
           {category.products.length > 0 ? (
-            <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {category.products.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
           ) : (
-            <div className="rounded-3xl border border-border bg-card p-12 text-center">
+            <div className="text-center py-20">
               <p className="text-muted-foreground">
-                No hay productos disponibles en esta categoria.
+                No hay productos en esta categoria aun.
               </p>
             </div>
           )}
