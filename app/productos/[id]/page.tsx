@@ -1,11 +1,11 @@
 import { notFound } from 'next/navigation'
 import { Header } from '@/components/store/header'
 import { Footer } from '@/components/store/footer'
-import { ProductDetail } from '@/components/store/product-detail'
 import { prisma } from '@/lib/prisma'
+import { ProductDetail } from '@/components/store/product-detail'
 
 async function getProduct(id: string) {
-  return prisma.product.findFirst({
+  const product = await prisma.product.findFirst({
     where: {
       id,
       status: {
@@ -18,13 +18,14 @@ async function getProduct(id: string) {
       sizes: true,
     },
   })
+  return product
 }
 
-async function getRelatedProducts(productId: string, categoryId: string) {
-  return prisma.product.findMany({
+async function getRelatedProducts(categoryId: string, currentId: string) {
+  const products = await prisma.product.findMany({
     where: {
-      id: { not: productId },
       categoryId,
+      id: { not: currentId },
       status: {
         in: ['ACTIVE', 'COMING_SOON'],
       },
@@ -34,8 +35,8 @@ async function getRelatedProducts(productId: string, categoryId: string) {
       category: true,
     },
     take: 4,
-    orderBy: { createdAt: 'desc' },
   })
+  return products
 }
 
 export default async function ProductPage({
@@ -50,7 +51,7 @@ export default async function ProductPage({
     notFound()
   }
 
-  const relatedProducts = await getRelatedProducts(product.id, product.categoryId)
+  const relatedProducts = await getRelatedProducts(product.categoryId, product.id)
 
   return (
     <div className="min-h-screen flex flex-col">

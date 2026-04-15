@@ -42,7 +42,10 @@ function normalizeSizes(input: unknown) {
   })
 }
 
-export async function POST(request: Request) {
+export async function PUT(
+  request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     const user = await getCurrentUser()
 
@@ -50,6 +53,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
+    const { id } = await context.params
     const body = await request.json()
 
     const name = String(body.name || '').trim()
@@ -100,43 +104,106 @@ export async function POST(request: Request) {
       )
     }
 
-    const product = await prisma.product.create({
-      data: {
-        name,
-        description,
-        price,
-        stock: totalStock,
-        categoryId,
-        status,
-        dropName,
-        releaseAt,
-        images: {
-          create: images.map((url, index) => ({
-            url,
-            order: index,
-          })),
+    const product = await prisma.$transaction(async (tx) => {
+      await tx.productImage.deleteMany({
+        where: { productId: id },
+      })
+
+      await tx.productSize.deleteMany({
+        where: { productId: id },
+      })
+
+      return tx.product.update({
+        where: { id },
+        data: {
+          name,
+          description,
+          price,
+          stock: totalStock,
+          categoryId,
+          status,
+          dropName,
+          releaseAt,
+          images: {
+            create: images.map((url, index) => ({
+              url,
+              order: index,
+            })),
+          },
+          sizes: {
+            create: sizes.map((item) => ({
+              size: item.size,
+              stock: item.stock,
+            })),
+          },
         },
-        sizes: {
-          create: sizes.map((item) => ({
-            size: item.size,
-            stock: item.stock,
-          })),
+        include: {
+          images: { orderBy: { order: 'asc' } },
+          sizes: true,
+          category: true,
         },
-      },
-      include: {
-        images: { orderBy: { order: 'asc' } },
-        sizes: true,
-        category: true,
-      },
+      })
     })
 
-    return NextResponse.json(product, { status: 201 })
+    return NextResponse.json(product)
   } catch (error) {
-    console.error('[admin:products:create]', error)
+    console.error('[admin:products:update]', error)
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : 'No se pudo crear el producto',
+          error instanceof Error
+            ? error.message
+            : 'No se pudo actualizar el producto',
+      },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(
+  _request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = await getCurrentUser()
+
+    if (!user || user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    const { id } = await context.params
+
+    await prisma.$transaction(async (tx) => {
+      await tx.cartItem.deleteMany({
+        where: { productId: id },
+      })
+
+      await tx.orderItem.deleteMany({
+        where: { productId: id },
+      })
+
+      await tx.productImage.deleteMany({
+        where: { productId: id },
+      })
+
+      await tx.productSize.deleteMany({
+        where: { productId: id },
+      })
+
+      await tx.product.delete({
+        where: { id },
+      })
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('[admin:products:delete]', error)
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : 'No se pudo eliminar el producto',
       },
       { status: 500 }
     )

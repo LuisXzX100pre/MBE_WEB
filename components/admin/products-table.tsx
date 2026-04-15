@@ -42,16 +42,22 @@ export function ProductsTable({ products }: { products: Product[] }) {
     if (!confirm('Estas seguro de eliminar este producto?')) return
 
     setDeleting(id)
+
     try {
       const res = await fetch(`/api/admin/products/${id}`, {
         method: 'DELETE',
       })
 
-      if (res.ok) {
-        router.refresh()
+      const data = await res.json().catch(() => null)
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'No se pudo eliminar el producto')
       }
+
+      router.refresh()
     } catch (error) {
       console.error('Error deleting product:', error)
+      alert(error instanceof Error ? error.message : 'Error al eliminar')
     } finally {
       setDeleting(null)
     }
@@ -87,8 +93,7 @@ export function ProductsTable({ products }: { products: Product[] }) {
         </thead>
         <tbody>
           {products.map((product) => {
-            const statusInfo =
-              statusMap[product.status] || statusMap.INACTIVE
+            const statusInfo = statusMap[product.status] || statusMap.INACTIVE
 
             return (
               <tr key={product.id} className="border-b border-border last:border-0">
@@ -120,9 +125,7 @@ export function ProductsTable({ products }: { products: Product[] }) {
                 <td className="p-4">{product.stock}</td>
 
                 <td className="p-4">
-                  <span
-                    className={`text-xs px-2 py-1 rounded-full ${statusInfo.className}`}
-                  >
+                  <span className={`text-xs px-2 py-1 rounded-full ${statusInfo.className}`}>
                     {statusInfo.label}
                   </span>
                 </td>

@@ -4,7 +4,7 @@ import { ProductCard } from '@/components/store/product-card'
 import { prisma } from '@/lib/prisma'
 
 async function getProducts() {
-  return prisma.product.findMany({
+  const products = await prisma.product.findMany({
     where: {
       status: {
         in: ['ACTIVE', 'COMING_SOON'],
@@ -16,10 +16,12 @@ async function getProducts() {
     },
     orderBy: { createdAt: 'desc' },
   })
+  return products
 }
 
 async function getCategories() {
-  return prisma.category.findMany()
+  const categories = await prisma.category.findMany()
+  return categories
 }
 
 export default async function ProductsPage() {
