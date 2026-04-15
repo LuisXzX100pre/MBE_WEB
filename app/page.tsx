@@ -9,8 +9,12 @@ import { prisma } from '@/lib/prisma'
 import { ArrowRight } from 'lucide-react'
 
 async function getFeaturedProducts() {
-  const products = await prisma.product.findMany({
-    where: { status: 'ACTIVE' },
+  return prisma.product.findMany({
+    where: {
+      status: {
+        in: ['ACTIVE', 'COMING_SOON'],
+      },
+    },
     include: {
       images: { orderBy: { order: 'asc' } },
       category: true,
@@ -18,21 +22,52 @@ async function getFeaturedProducts() {
     take: 8,
     orderBy: { createdAt: 'desc' },
   })
-  return products
 }
 
 async function getCategories() {
-  const categories = await prisma.category.findMany({
+  return prisma.category.findMany({
     include: {
       _count: { select: { products: true } },
     },
   })
-  return categories
+}
+
+async function getNextDrop() {
+  return prisma.product.findFirst({
+    where: {
+      status: 'COMING_SOON',
+      releaseAt: {
+        not: null,
+        gte: new Date(),
+      },
+    },
+    select: {
+      id: true,
+      name: true,
+      dropName: true,
+      releaseAt: true,
+      category: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: {
+      releaseAt: 'asc',
+    },
+  })
+}
+
+function formatDropSubtitle(name: string, categoryName: string) {
+  return `${name} de ${categoryName} estara disponible cuando termine el contador.`
 }
 
 export default async function HomePage() {
-  const products = await getFeaturedProducts()
-  const categories = await getCategories()
+  const [products, categories, nextDrop] = await Promise.all([
+    getFeaturedProducts(),
+    getCategories(),
+    getNextDrop(),
+  ])
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -43,8 +78,7 @@ export default async function HomePage() {
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 4rem)' }}
       >
         <section
-          className="relative flex items-center justify-center overflow-hidden bg-gradient-to-b from-card to-background px-4 py-10 sm:px-6 sm:py-14 lg:px-8"
-          style={{ minHeight: 'calc(100svh - 4rem)' }}
+          className="relative flex min-h-[calc(100svh-4rem)] items-center justify-center overflow-hidden bg-gradient-to-b from-card to-background px-4 py-10 sm:px-6 sm:py-14 lg:px-8"
         >
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-muted/20 via-transparent to-transparent" />
           <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:42px_42px] opacity-20" />
@@ -65,11 +99,28 @@ export default async function HomePage() {
               "MBE Es para todos, Pero no para cualquiera."
             </p>
 
-            <DropCountdown
-              targetDate="2026-04-30T20:00:00"
-              title="NUEVA COLECCION MBE"
-              subtitle="Disponible muy pronto. Prepárate para el siguiente lanzamiento."
-            />
+            {nextDrop ? (
+              <DropCountdown
+                targetDate={nextDrop.releaseAt!.toISOString()}
+                title={nextDrop.dropName || nextDrop.name}
+                subtitle={formatDropSubtitle(
+                  nextDrop.name,
+                  nextDrop.category.name
+                )}
+              />
+            ) : (
+              <div className="mx-auto w-full max-w-3xl rounded-[32px] border border-white/10 bg-white/[0.035] px-6 py-6 text-center shadow-[0_20px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+                <p className="text-sm uppercase tracking-[0.35em] text-white/55">
+                  MBE
+                </p>
+                <h2 className="mt-3 text-3xl font-black tracking-tight text-white md:text-5xl">
+                  NUEVA COLECCION
+                </h2>
+                <p className="mt-3 text-white/60">
+                  Muy pronto se anunciara el siguiente drop.
+                </p>
+              </div>
+            )}
 
             <Link
               href="/productos"

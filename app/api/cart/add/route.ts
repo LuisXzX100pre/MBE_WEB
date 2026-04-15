@@ -1,8 +1,16 @@
-// app/api/cart/add/route.ts
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { Size } from '@prisma/client'
+
+function isLockedDrop(product: {
+  status: string
+  releaseAt: Date | null
+}) {
+  if (product.status !== 'COMING_SOON') return false
+  if (!product.releaseAt) return true
+  return product.releaseAt.getTime() > Date.now()
+}
 
 export async function POST(request: Request) {
   const user = await getCurrentUser()
@@ -22,12 +30,24 @@ export async function POST(request: Request) {
     })
 
     if (!product) {
-      return NextResponse.json({ error: 'Producto no encontrado' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Producto no encontrado' },
+        { status: 404 }
+      )
     }
 
-    if (product.status !== 'ACTIVE') {
+    if (product.status === 'INACTIVE') {
       return NextResponse.json(
         { error: 'Producto no disponible' },
+        { status: 400 }
+      )
+    }
+
+    if (isLockedDrop(product)) {
+      return NextResponse.json(
+        {
+          error: 'Este producto pertenece a un proximo drop y aun no se puede comprar',
+        },
         { status: 400 }
       )
     }
@@ -72,15 +92,13 @@ export async function POST(request: Request) {
           { status: 400 }
         )
       }
-    } else {
-      if (product.stock < finalQuantity) {
-        return NextResponse.json(
-          {
-            error: `Solo hay ${product.stock} unidades disponibles`,
-          },
-          { status: 400 }
-        )
-      }
+    } else if (product.stock < finalQuantity) {
+      return NextResponse.json(
+        {
+          error: `Solo hay ${product.stock} unidades disponibles`,
+        },
+        { status: 400 }
+      )
     }
 
     if (existingItem) {

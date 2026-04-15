@@ -63,6 +63,20 @@ export async function POST(request: Request) {
     }
 
     for (const item of cart.items) {
+      const isLockedDrop =
+        item.product.status === 'COMING_SOON' &&
+        (!item.product.releaseAt ||
+          item.product.releaseAt.getTime() > Date.now())
+
+      if (item.product.status === 'INACTIVE' || isLockedDrop) {
+        return NextResponse.json(
+          {
+            error: `${item.product.name} aun no esta disponible para compra`,
+          },
+          { status: 400 }
+        )
+      }
+
       if (item.size) {
         const sizeData = item.product.sizes.find((s) => s.size === item.size)
 

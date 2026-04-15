@@ -38,6 +38,8 @@ model Product {
   price       Float
   stock       Int           @default(0)
   status      ProductStatus @default(ACTIVE)
+  dropName    String?
+  releaseAt   DateTime?
   categoryId  String
   category    Category      @relation(fields: [categoryId], references: [id])
   images      ProductImage[]
@@ -67,6 +69,7 @@ enum Size {
 
 enum ProductStatus {
   ACTIVE
+  COMING_SOON
   INACTIVE
 }
 

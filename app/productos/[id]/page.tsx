@@ -1,36 +1,41 @@
-// app/productos/[id]/page.tsx
 import { notFound } from 'next/navigation'
 import { Header } from '@/components/store/header'
 import { Footer } from '@/components/store/footer'
-import { prisma } from '@/lib/prisma'
 import { ProductDetail } from '@/components/store/product-detail'
+import { prisma } from '@/lib/prisma'
 
 async function getProduct(id: string) {
-  const product = await prisma.product.findUnique({
-    where: { id },
+  return prisma.product.findFirst({
+    where: {
+      id,
+      status: {
+        in: ['ACTIVE', 'COMING_SOON'],
+      },
+    },
     include: {
       images: { orderBy: { order: 'asc' } },
       category: true,
       sizes: true,
     },
   })
-  return product
 }
 
-async function getRelatedProducts(categoryId: string, currentId: string) {
-  const products = await prisma.product.findMany({
+async function getRelatedProducts(productId: string, categoryId: string) {
+  return prisma.product.findMany({
     where: {
+      id: { not: productId },
       categoryId,
-      id: { not: currentId },
-      status: 'ACTIVE',
+      status: {
+        in: ['ACTIVE', 'COMING_SOON'],
+      },
     },
     include: {
       images: { orderBy: { order: 'asc' } },
       category: true,
     },
     take: 4,
+    orderBy: { createdAt: 'desc' },
   })
-  return products
 }
 
 export default async function ProductPage({
@@ -45,7 +50,7 @@ export default async function ProductPage({
     notFound()
   }
 
-  const relatedProducts = await getRelatedProducts(product.categoryId, product.id)
+  const relatedProducts = await getRelatedProducts(product.id, product.categoryId)
 
   return (
     <div className="min-h-screen flex flex-col">

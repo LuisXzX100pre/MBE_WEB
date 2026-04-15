@@ -1,18 +1,19 @@
-// app/categorias/[slug]/page.tsx
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
 import { Header } from '@/components/store/header'
 import { Footer } from '@/components/store/footer'
 import { ProductCard } from '@/components/store/product-card'
 import { prisma } from '@/lib/prisma'
-import { ArrowLeft } from 'lucide-react'
 
-async function getCategoryWithProducts(slug: string) {
-  const category = await prisma.category.findUnique({
+async function getCategory(slug: string) {
+  return prisma.category.findUnique({
     where: { slug },
     include: {
       products: {
-        where: { status: 'ACTIVE' },
+        where: {
+          status: {
+            in: ['ACTIVE', 'COMING_SOON'],
+          },
+        },
         include: {
           images: { orderBy: { order: 'asc' } },
           category: true,
@@ -21,7 +22,6 @@ async function getCategoryWithProducts(slug: string) {
       },
     },
   })
-  return category
 }
 
 export default async function CategoryPage({
@@ -30,7 +30,7 @@ export default async function CategoryPage({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
-  const category = await getCategoryWithProducts(slug)
+  const category = await getCategory(slug)
 
   if (!category) {
     notFound()
@@ -41,32 +41,29 @@ export default async function CategoryPage({
       <Header />
 
       <main className="flex-1 pt-24 pb-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <Link
-            href="/categorias"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Volver a categorias
-          </Link>
-
-          <div className="mb-8">
-            <h1 className="text-3xl md:text-4xl font-bold">{category.name}</h1>
-            <p className="text-muted-foreground mt-2">
-              {category.products.length} productos
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-10">
+            <p className="mb-2 text-xs uppercase tracking-[0.35em] text-muted-foreground">
+              Categoria
+            </p>
+            <h1 className="text-3xl font-black tracking-tight md:text-4xl">
+              {category.name}
+            </h1>
+            <p className="mt-3 text-muted-foreground">
+              {category.products.length} producto(s)
             </p>
           </div>
 
           {category.products.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
               {category.products.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
           ) : (
-            <div className="text-center py-20">
+            <div className="rounded-3xl border border-border bg-card p-12 text-center">
               <p className="text-muted-foreground">
-                No hay productos en esta categoria aun.
+                No hay productos disponibles en esta categoria.
               </p>
             </div>
           )}
