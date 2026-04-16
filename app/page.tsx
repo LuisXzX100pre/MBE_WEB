@@ -152,23 +152,23 @@ export default async function HomePage() {
         className="flex-1"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 4rem)' }}
       >
-        <section className="relative overflow-hidden bg-gradient-to-b from-card to-background px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+        <section className="relative overflow-hidden bg-gradient-to-b from-card to-background px-3 py-6 sm:px-4 sm:py-8 md:px-6 lg:px-8">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-muted/20 via-transparent to-transparent" />
           <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:42px_42px] opacity-20" />
 
-          <div className="relative mx-auto flex max-w-7xl flex-col items-center">
-            <div className="mb-5 sm:mb-7">
+          <div className="relative mx-auto flex w-full max-w-[1600px] flex-col items-center">
+            <div className="mb-4 sm:mb-5">
               <Image
                 src="/logo.png"
                 alt="MBE Logo"
                 width={340}
                 height={160}
-                className="mx-auto h-16 w-auto object-contain sm:h-20 md:h-28"
+                className="mx-auto h-14 w-auto object-contain sm:h-16 md:h-20"
                 priority
               />
             </div>
 
-            <p className="mb-8 max-w-2xl text-center text-lg text-muted-foreground sm:text-xl md:text-2xl">
+            <p className="mb-6 max-w-3xl text-center text-base text-muted-foreground sm:text-lg md:mb-8 md:text-2xl">
               "MBE Es para todos, Pero no para cualquiera."
             </p>
 
@@ -177,7 +177,7 @@ export default async function HomePage() {
         </section>
 
         {categories.length > 0 && (
-          <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 md:py-20 lg:px-8">
+          <section className="mx-auto w-full max-w-[1600px] px-4 py-16 sm:px-6 md:py-20 lg:px-8">
             <h2 className="mb-8 text-2xl font-bold md:text-3xl">Categorias</h2>
 
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -203,7 +203,7 @@ export default async function HomePage() {
           </section>
         )}
 
-        <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 md:py-20 lg:px-8">
+        <section className="mx-auto w-full max-w-[1600px] px-4 py-16 sm:px-6 md:py-20 lg:px-8">
           <div className="mb-8 flex items-center justify-between gap-4">
             <h2 className="text-2xl font-bold md:text-3xl">Ultimos productos</h2>
 
@@ -217,7 +217,7 @@ export default async function HomePage() {
           </div>
 
           {products.length > 0 ? (
-            <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
               {products.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
