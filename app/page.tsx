@@ -152,12 +152,15 @@ export default async function HomePage() {
         className="flex-1"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 4rem)' }}
       >
-        <section className="relative overflow-hidden bg-gradient-to-b from-card to-background px-3 py-6 sm:px-4 sm:py-8 md:px-6 lg:px-8">
+        <section
+          className="relative overflow-hidden bg-gradient-to-b from-card to-background px-3 pt-2 pb-6 sm:px-4 sm:pt-3 sm:pb-8 md:px-6 lg:px-8"
+          style={{ minHeight: 'calc(100svh - 4rem)' }}
+        >
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-muted/20 via-transparent to-transparent" />
           <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:42px_42px] opacity-20" />
 
-          <div className="relative mx-auto flex w-full max-w-[1600px] flex-col items-center">
-            <div className="mb-4 sm:mb-5">
+          <div className="relative mx-auto flex h-full w-full max-w-[1700px] flex-col">
+            <div className="flex flex-col items-center pt-2 sm:pt-3">
               <Image
                 src="/logo.png"
                 alt="MBE Logo"
@@ -166,18 +169,20 @@ export default async function HomePage() {
                 className="mx-auto h-14 w-auto object-contain sm:h-16 md:h-20"
                 priority
               />
+
+              <p className="mt-3 mb-4 max-w-3xl text-center text-base text-muted-foreground sm:mt-4 sm:mb-5 sm:text-lg md:text-2xl">
+                "MBE Es para todos, Pero no para cualquiera."
+              </p>
             </div>
 
-            <p className="mb-6 max-w-3xl text-center text-base text-muted-foreground sm:text-lg md:mb-8 md:text-2xl">
-              "MBE Es para todos, Pero no para cualquiera."
-            </p>
-
-            <HomeHeroCarousel slides={heroSlides} />
+            <div className="flex flex-1">
+              <HomeHeroCarousel slides={heroSlides} />
+            </div>
           </div>
         </section>
 
         {categories.length > 0 && (
-          <section className="mx-auto w-full max-w-[1600px] px-4 py-16 sm:px-6 md:py-20 lg:px-8">
+          <section className="mx-auto w-full max-w-[1700px] px-4 py-16 sm:px-6 md:py-20 lg:px-8">
             <h2 className="mb-8 text-2xl font-bold md:text-3xl">Categorias</h2>
 
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -203,7 +208,7 @@ export default async function HomePage() {
           </section>
         )}
 
-        <section className="mx-auto w-full max-w-[1600px] px-4 py-16 sm:px-6 md:py-20 lg:px-8">
+        <section className="mx-auto w-full max-w-[1700px] px-4 py-16 sm:px-6 md:py-20 lg:px-8">
           <div className="mb-8 flex items-center justify-between gap-4">
             <h2 className="text-2xl font-bold md:text-3xl">Ultimos productos</h2>
 
