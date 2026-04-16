@@ -3,8 +3,10 @@ import { Footer } from '@/components/store/footer'
 import { ProductCard } from '@/components/store/product-card'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 async function getProducts() {
-  const products = await prisma.product.findMany({
+  return prisma.product.findMany({
     where: {
       status: {
         in: ['ACTIVE', 'COMING_SOON'],
@@ -16,12 +18,10 @@ async function getProducts() {
     },
     orderBy: { createdAt: 'desc' },
   })
-  return products
 }
 
 async function getCategories() {
-  const categories = await prisma.category.findMany()
-  return categories
+  return prisma.category.findMany()
 }
 
 export default async function ProductsPage() {

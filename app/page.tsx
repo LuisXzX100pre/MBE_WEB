@@ -8,6 +8,8 @@ import { DropCountdown } from '@/components/store/drop-countdown'
 import { prisma } from '@/lib/prisma'
 import { ArrowRight } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 async function getFeaturedProducts() {
   return prisma.product.findMany({
     where: {

@@ -6,6 +6,8 @@ import { ProductCard } from '@/components/store/product-card'
 import { prisma } from '@/lib/prisma'
 import { ArrowLeft } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 async function getCategoryWithProducts(slug: string) {
   return prisma.category.findUnique({
     where: { slug },

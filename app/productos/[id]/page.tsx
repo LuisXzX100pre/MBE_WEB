@@ -4,8 +4,10 @@ import { Footer } from '@/components/store/footer'
 import { prisma } from '@/lib/prisma'
 import { ProductDetail } from '@/components/store/product-detail'
 
+export const dynamic = 'force-dynamic'
+
 async function getProduct(id: string) {
-  const product = await prisma.product.findFirst({
+  return prisma.product.findFirst({
     where: {
       id,
       status: {
@@ -18,11 +20,10 @@ async function getProduct(id: string) {
       sizes: true,
     },
   })
-  return product
 }
 
 async function getRelatedProducts(categoryId: string, currentId: string) {
-  const products = await prisma.product.findMany({
+  return prisma.product.findMany({
     where: {
       categoryId,
       id: { not: currentId },
@@ -36,7 +37,6 @@ async function getRelatedProducts(categoryId: string, currentId: string) {
     },
     take: 4,
   })
-  return products
 }
 
 export default async function ProductPage({
