@@ -4,7 +4,10 @@ import { Header } from '@/components/store/header'
 import { Footer } from '@/components/store/footer'
 import { ProductCard } from '@/components/store/product-card'
 import { CommunitySection } from '@/components/store/community-section'
-import { DropCountdown } from '@/components/store/drop-countdown'
+import {
+  HomeHeroCarousel,
+  type HomeHeroSlide,
+} from '@/components/store/home-hero-carousel'
 import { prisma } from '@/lib/prisma'
 import { ArrowRight } from 'lucide-react'
 
@@ -22,6 +25,20 @@ async function getFeaturedProducts() {
       category: true,
     },
     take: 8,
+    orderBy: { createdAt: 'desc' },
+  })
+}
+
+async function getPromoProducts() {
+  return prisma.product.findMany({
+    where: {
+      status: 'ACTIVE',
+    },
+    include: {
+      images: { orderBy: { order: 'asc' } },
+      category: true,
+    },
+    take: 3,
     orderBy: { createdAt: 'desc' },
   })
 }
@@ -53,6 +70,11 @@ async function getNextDrop() {
           name: true,
         },
       },
+      images: {
+        orderBy: { order: 'asc' },
+        take: 1,
+        select: { url: true },
+      },
     },
     orderBy: {
       releaseAt: 'asc',
@@ -60,12 +82,67 @@ async function getNextDrop() {
   })
 }
 
+function buildHeroSlides(
+  nextDrop: Awaited<ReturnType<typeof getNextDrop>>,
+  promoProducts: Awaited<ReturnType<typeof getPromoProducts>>
+): HomeHeroSlide[] {
+  const slides: HomeHeroSlide[] = []
+
+  if (nextDrop && nextDrop.releaseAt) {
+    slides.push({
+      id: `drop-${nextDrop.id}`,
+      type: 'drop',
+      eyebrow: 'Proximo drop',
+      title: nextDrop.dropName || nextDrop.name,
+      subtitle: `${nextDrop.name} de ${nextDrop.category.name} estara disponible cuando termine el contador.`,
+      targetDate: nextDrop.releaseAt.toISOString(),
+      ctaHref: `/productos/${nextDrop.id}`,
+      ctaLabel: 'Ver drop',
+      image: nextDrop.images[0]?.url || null,
+    })
+  }
+
+  for (const product of promoProducts) {
+    slides.push({
+      id: `promo-${product.id}`,
+      type: 'promo',
+      eyebrow: product.category.name,
+      title: product.name,
+      subtitle:
+        product.description?.trim() ||
+        `Descubre ${product.name} y explora la nueva propuesta de ${product.category.name}.`,
+      priceText: `$${product.price.toFixed(2)} MXN`,
+      image: product.images[0]?.url || null,
+      ctaHref: `/productos/${product.id}`,
+      ctaLabel: 'Ver producto',
+    })
+  }
+
+  if (slides.length === 0) {
+    slides.push({
+      id: 'brand-default',
+      type: 'promo',
+      eyebrow: 'MBE',
+      title: 'NUEVA COLECCION',
+      subtitle:
+        'Descubre nuestras piezas, proximos drops y productos destacados de la marca.',
+      ctaHref: '/productos',
+      ctaLabel: 'Explorar ahora',
+    })
+  }
+
+  return slides
+}
+
 export default async function HomePage() {
-  const [products, categories, nextDrop] = await Promise.all([
+  const [products, promoProducts, categories, nextDrop] = await Promise.all([
     getFeaturedProducts(),
+    getPromoProducts(),
     getCategories(),
     getNextDrop(),
   ])
+
+  const heroSlides = buildHeroSlides(nextDrop, promoProducts)
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -75,56 +152,27 @@ export default async function HomePage() {
         className="flex-1"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 4rem)' }}
       >
-        <section
-          className="relative flex items-center justify-center overflow-hidden bg-gradient-to-b from-card to-background px-4 py-10 sm:px-6 sm:py-14 lg:px-8"
-          style={{ minHeight: 'calc(100svh - 4rem)' }}
-        >
+        <section className="relative overflow-hidden bg-gradient-to-b from-card to-background px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-muted/20 via-transparent to-transparent" />
           <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:42px_42px] opacity-20" />
 
-          <div className="relative mx-auto flex w-full max-w-5xl flex-col items-center text-center">
+          <div className="relative mx-auto flex max-w-7xl flex-col items-center">
             <div className="mb-5 sm:mb-7">
               <Image
                 src="/logo.png"
                 alt="MBE Logo"
                 width={340}
                 height={160}
-                className="mx-auto h-16 w-auto object-contain sm:h-20 md:h-28 lg:h-36"
+                className="mx-auto h-16 w-auto object-contain sm:h-20 md:h-28"
                 priority
               />
             </div>
 
-            <p className="mb-7 max-w-2xl text-lg text-muted-foreground sm:text-xl md:mb-8 md:text-2xl">
+            <p className="mb-8 max-w-2xl text-center text-lg text-muted-foreground sm:text-xl md:text-2xl">
               "MBE Es para todos, Pero no para cualquiera."
             </p>
 
-            {nextDrop ? (
-              <DropCountdown
-                targetDate={nextDrop.releaseAt!.toISOString()}
-                title={nextDrop.dropName || nextDrop.name}
-                subtitle={`${nextDrop.name} estara disponible cuando termine el contador.`}
-              />
-            ) : (
-              <div className="mx-auto w-full max-w-3xl rounded-[32px] border border-white/10 bg-white/[0.035] px-6 py-6 text-center shadow-[0_20px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-                <p className="text-sm uppercase tracking-[0.35em] text-white/55">
-                  MBE
-                </p>
-                <h2 className="mt-3 text-3xl font-black tracking-tight text-white md:text-5xl">
-                  NUEVA COLECCION
-                </h2>
-                <p className="mt-3 text-white/60">
-                  Muy pronto se anunciara el siguiente drop.
-                </p>
-              </div>
-            )}
-
-            <Link
-              href="/productos"
-              className="mt-7 inline-flex items-center gap-2 rounded-full bg-primary px-7 py-3.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 sm:px-8 sm:py-4 sm:text-base"
-            >
-              Ver coleccion
-              <ArrowRight className="h-5 w-5" />
-            </Link>
+            <HomeHeroCarousel slides={heroSlides} />
           </div>
         </section>
 
