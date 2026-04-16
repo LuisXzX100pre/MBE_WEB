@@ -1,4 +1,3 @@
-// app/layout.tsx
 import type { Metadata } from 'next'
 import { Inter, Space_Mono } from 'next/font/google'
 import './globals.css'
@@ -20,6 +19,11 @@ const spaceMono = Space_Mono({
 export const metadata: Metadata = {
   title: 'MBE - Streetwear',
   description: 'Tienda de ropa streetwear exclusiva',
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/apple-icon.png',
+  },
 }
 
 export default function RootLayout({
