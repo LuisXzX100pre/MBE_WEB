@@ -153,14 +153,14 @@ export default async function HomePage() {
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 4rem)' }}
       >
         <section
-          className="relative overflow-hidden bg-gradient-to-b from-card to-background px-3 pt-2 pb-6 sm:px-4 sm:pt-3 sm:pb-8 md:px-6 lg:px-8"
+          className="relative overflow-hidden bg-gradient-to-b from-card to-background px-3 pt-1 pb-6 sm:px-4 sm:pt-2 sm:pb-8 md:px-6 lg:px-8"
           style={{ minHeight: 'calc(100svh - 4rem)' }}
         >
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-muted/20 via-transparent to-transparent" />
           <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:42px_42px] opacity-20" />
 
           <div className="relative mx-auto flex h-full w-full max-w-[1700px] flex-col">
-            <div className="flex flex-col items-center pt-2 sm:pt-3">
+            <div className="flex flex-col items-center pt-1 sm:pt-2">
               <Image
                 src="/logo.png"
                 alt="MBE Logo"
@@ -170,7 +170,7 @@ export default async function HomePage() {
                 priority
               />
 
-              <p className="mt-3 mb-4 max-w-3xl text-center text-base text-muted-foreground sm:mt-4 sm:mb-5 sm:text-lg md:text-2xl">
+              <p className="mt-2 mb-4 max-w-3xl text-center text-base text-muted-foreground sm:mt-3 sm:mb-5 sm:text-lg md:text-2xl">
                 "MBE Es para todos, Pero no para cualquiera."
               </p>
             </div>

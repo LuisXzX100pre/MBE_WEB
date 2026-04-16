@@ -87,16 +87,16 @@ function CompactCountdown({ targetDate }: { targetDate: string }) {
 
   if (mounted && timeLeft.expired) {
     return (
-      <div className="rounded-[24px] border border-white/10 bg-black/55 p-5 text-center shadow-[0_20px_80px_rgba(0,0,0,0.35)] sm:rounded-[28px] sm:p-6">
+      <div className="rounded-[22px] border border-white/10 bg-black/55 p-5 text-center shadow-[0_20px_80px_rgba(0,0,0,0.35)] sm:rounded-[28px] sm:p-6">
         <p className="text-base font-semibold text-white sm:text-lg">
-          El drop ya esta disponible.
+          El drop ya está disponible.
         </p>
       </div>
     )
   }
 
   return (
-    <div className="rounded-[24px] border border-white/10 bg-black/50 p-4 shadow-[0_20px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:rounded-[28px] sm:p-6">
+    <div className="rounded-[22px] border border-white/10 bg-black/50 p-4 shadow-[0_20px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:rounded-[28px] sm:p-6">
       <div className="mb-4 flex items-center justify-center gap-3">
         <span className="relative flex h-3 w-3 shrink-0">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70 opacity-75" />
@@ -104,7 +104,7 @@ function CompactCountdown({ targetDate }: { targetDate: string }) {
         </span>
 
         <p className="text-[10px] font-semibold uppercase tracking-[0.34em] text-white/70 sm:text-xs">
-          Proximo drop
+          Próximo drop
         </p>
       </div>
 
@@ -161,19 +161,19 @@ export function HomeHeroCarousel({ slides }: { slides: HomeHeroSlide[] }) {
   }
 
   return (
-    <div className="flex w-full flex-1">
+    <div className="w-full">
       <div
-        className={`relative flex w-full flex-1 overflow-hidden rounded-[26px] border border-white/10 bg-gradient-to-br ${currentTheme} shadow-[0_25px_90px_rgba(0,0,0,0.35)] sm:rounded-[32px] lg:rounded-[38px]`}
+        className={`relative overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-br ${currentTheme} shadow-[0_25px_90px_rgba(0,0,0,0.35)] sm:rounded-[32px] lg:rounded-[38px]`}
       >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.09),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.05),transparent_24%)]" />
 
-        <div className="relative grid min-h-[430px] w-full flex-1 items-center gap-8 px-4 py-5 sm:min-h-[500px] sm:px-6 sm:py-6 md:min-h-[560px] md:px-8 md:py-8 lg:min-h-[520px] lg:grid-cols-[1.02fr_0.98fr] lg:px-10 xl:min-h-[560px] xl:px-12">
+        <div className="relative grid min-h-[420px] w-full items-center gap-8 px-4 py-5 sm:min-h-[500px] sm:px-6 sm:py-6 md:min-h-[560px] md:px-8 md:py-8 lg:min-h-[520px] lg:grid-cols-[1.02fr_0.98fr] lg:px-10 xl:min-h-[560px] xl:px-12">
           <div className="flex flex-col justify-center">
             <p className="mb-4 inline-flex w-fit rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.22em] text-white/70 sm:px-4 sm:text-xs sm:tracking-[0.28em]">
               {activeSlide.eyebrow}
             </p>
 
-            <h2 className="max-w-3xl text-3xl font-black leading-[0.95] tracking-tight text-white sm:text-4xl md:text-5xl lg:text-[3.6rem]">
+            <h2 className="max-w-3xl text-3xl font-black leading-[0.95] tracking-tight text-white sm:text-4xl md:text-5xl lg:text-[3.4rem]">
               {activeSlide.title}
             </h2>
 
@@ -211,7 +211,7 @@ export function HomeHeroCarousel({ slides }: { slides: HomeHeroSlide[] }) {
                 <CompactCountdown targetDate={activeSlide.targetDate} />
               </div>
             ) : activeSlide.image ? (
-              <div className="relative h-[250px] w-full overflow-hidden rounded-[22px] border border-white/10 bg-black/30 shadow-[0_20px_80px_rgba(0,0,0,0.35)] sm:h-[320px] sm:rounded-[28px] md:h-[360px] lg:h-[390px] xl:h-[430px]">
+              <div className="relative h-[240px] w-full overflow-hidden rounded-[22px] border border-white/10 bg-black/30 shadow-[0_20px_80px_rgba(0,0,0,0.35)] sm:h-[320px] sm:rounded-[28px] md:h-[360px] lg:h-[390px] xl:h-[430px]">
                 <Image
                   src={activeSlide.image}
                   alt={activeSlide.title}
