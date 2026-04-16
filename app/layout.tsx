@@ -20,8 +20,8 @@ export const metadata: Metadata = {
   title: 'MBE - Streetwear',
   description: 'Tienda de ropa streetwear exclusiva',
   icons: {
-    icon: '/logo.png',
-    shortcut: '/logo.png',
+    icon: '/ICONO_LOGO.png',
+    shortcut: '/ICONO_LOGO.png',
     apple: '/apple-icon.png',
   },
 }
