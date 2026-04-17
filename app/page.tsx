@@ -10,8 +10,8 @@ import {
 } from '@/components/store/home-hero-carousel'
 import { DropCountdown } from '@/components/store/drop-countdown'
 import { prisma } from '@/lib/prisma'
-import { ArrowRight, Flame, Sparkles } from 'lucide-react'
-import { DROP_FIXED_DAYS, getDropWindowEndDate, isWithinDropWindow } from '@/lib/drop'
+import { ArrowRight } from 'lucide-react'
+import { DROP_FIXED_DAYS, isWithinDropWindow } from '@/lib/drop'
 
 export const dynamic = 'force-dynamic'
 
@@ -161,198 +161,96 @@ function buildHeroSlides(
   return slides
 }
 
-function formatDropDate(value?: string | Date | null) {
-  if (!value) return null
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-
-  return date.toLocaleString('es-MX', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function DropHero({
-  mode,
+function UpcomingDropOnlyCountdown({
   product,
 }: {
-  mode: 'upcoming' | 'live'
-  product: NonNullable<
-    Awaited<ReturnType<typeof getNextDrop>> | Awaited<ReturnType<typeof getRecentlyReleasedDrop>>
-  >
+  product: NonNullable<Awaited<ReturnType<typeof getNextDrop>>>
 }) {
-  const releaseLabel = formatDropDate(product.releaseAt)
-  const fixedUntil = getDropWindowEndDate(product.releaseAt)
-  const fixedUntilLabel = formatDropDate(fixedUntil)
-
   return (
     <div className="w-full">
       <div className="relative overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-br from-[#0f0f10] via-[#171717] to-[#0a0a0a] shadow-[0_25px_90px_rgba(0,0,0,0.35)] sm:rounded-[32px] lg:rounded-[38px]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.05),transparent_22%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px] opacity-20" />
 
-        <div className="relative grid min-h-[480px] items-center gap-8 px-4 py-5 sm:min-h-[560px] sm:px-6 sm:py-6 md:px-8 md:py-8 lg:grid-cols-[1.02fr_0.98fr] lg:px-10 xl:px-12">
-          <div className="flex flex-col justify-center">
+        <div className="relative flex min-h-[420px] items-center justify-center px-4 py-8 sm:min-h-[500px] sm:px-6 md:min-h-[560px] md:px-8 lg:min-h-[520px] xl:min-h-[560px]">
+          <div className="w-full max-w-3xl">
+            <DropCountdown
+              targetDate={new Date(product.releaseAt!).toISOString()}
+              title={product.dropName || product.name}
+              subtitle="Cuenta regresiva oficial del siguiente drop. Cuando termine, el lanzamiento entra en promocion fija durante 3 dias."
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function LiveDropFixedHero({
+  product,
+}: {
+  product: NonNullable<Awaited<ReturnType<typeof getRecentlyReleasedDrop>>>
+}) {
+  return (
+    <div className="w-full">
+      <div className="relative overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-br from-[#0f0f10] via-[#171717] to-[#0a0a0a] shadow-[0_25px_90px_rgba(0,0,0,0.35)] sm:rounded-[32px] lg:rounded-[38px]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.05),transparent_22%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px] opacity-20" />
+
+        <div className="relative grid min-h-[420px] items-center gap-8 px-4 py-6 sm:min-h-[500px] sm:px-6 md:min-h-[560px] md:px-8 lg:grid-cols-[0.95fr_1.05fr] lg:px-10 xl:min-h-[560px] xl:px-12">
+          <div className="order-2 flex flex-col justify-center lg:order-1">
             <div className="mb-4 flex flex-wrap items-center gap-3">
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.24em] text-white/75 sm:text-xs">
-                {mode === 'upcoming' ? 'Proximo drop' : 'Nuevo drop disponible'}
+              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.24em] text-white/75 sm:text-xs">
+                Nuevo drop
               </span>
 
               {product.dropName && (
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.24em] text-white/75 sm:text-xs">
+                <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.24em] text-white/75 sm:text-xs">
                   {product.dropName}
                 </span>
               )}
             </div>
 
             <h1 className="max-w-3xl text-3xl font-black leading-[0.95] tracking-tight text-white sm:text-4xl md:text-5xl lg:text-[3.4rem]">
-              {mode === 'upcoming'
-                ? product.dropName || product.name
-                : `${product.dropName || product.name} YA DISPONIBLE`}
+              {product.dropName || product.name}
             </h1>
 
             <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/65 sm:text-base md:text-lg">
-              {mode === 'upcoming'
-                ? product.description?.trim() ||
-                  `${product.name} de ${product.category.name} se mantendra fijo en home hasta su lanzamiento.`
-                : product.description?.trim() ||
-                  `El nuevo drop ya salio y se quedara fijo en home durante ${DROP_FIXED_DAYS} dias para destacarlo como lanzamiento principal.`}
+              {product.description?.trim() ||
+                `Este drop se mantiene fijo en home durante ${DROP_FIXED_DAYS} dias despues de su estreno.`}
             </p>
 
-            {releaseLabel && (
-              <p className="mt-5 text-sm font-medium text-white/80 sm:text-base">
-                {mode === 'upcoming'
-                  ? `Lanzamiento: ${releaseLabel}`
-                  : `Estreno del drop: ${releaseLabel}`}
-              </p>
-            )}
-
-            {mode === 'live' && fixedUntilLabel && (
-              <p className="mt-2 text-sm text-white/55">
-                Fijo en home hasta: {fixedUntilLabel}
-              </p>
-            )}
-
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="mt-6">
               <Link
                 href={`/productos/${product.id}`}
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black transition-opacity hover:opacity-90 sm:px-6"
               >
-                {mode === 'upcoming' ? 'Ver drop' : 'Comprar ahora'}
+                Ver drop
                 <ArrowRight className="h-4 w-4" />
               </Link>
-
-              <Link
-                href="/productos"
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm font-medium text-white/80 transition-colors hover:bg-white/10 sm:px-6"
-              >
-                Ver todos los productos
-              </Link>
-            </div>
-
-            <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="rounded-[20px] border border-white/10 bg-black/35 p-4 sm:rounded-[24px] sm:p-5">
-                <p className="text-[10px] uppercase tracking-[0.22em] text-white/45 sm:text-xs">
-                  Estado
-                </p>
-                <p className="mt-3 flex items-center gap-2 text-lg font-black text-white sm:text-xl">
-                  {mode === 'upcoming' ? <Sparkles className="h-5 w-5" /> : <Flame className="h-5 w-5" />}
-                  {mode === 'upcoming' ? 'Preparando estreno' : 'En lanzamiento'}
-                </p>
-              </div>
-
-              <div className="rounded-[20px] border border-white/10 bg-black/35 p-4 sm:rounded-[24px] sm:p-5">
-                <p className="text-[10px] uppercase tracking-[0.22em] text-white/45 sm:text-xs">
-                  Categoria
-                </p>
-                <p className="mt-3 text-lg font-black text-white sm:text-xl">
-                  {product.category.name}
-                </p>
-              </div>
-
-              <div className="rounded-[20px] border border-white/10 bg-black/35 p-4 sm:rounded-[24px] sm:p-5">
-                <p className="text-[10px] uppercase tracking-[0.22em] text-white/45 sm:text-xs">
-                  Precio
-                </p>
-                <p className="mt-3 text-lg font-black text-white sm:text-xl">
-                  ${product.price.toFixed(2)} MXN
-                </p>
-              </div>
             </div>
           </div>
 
-          <div className="flex items-center justify-center">
-            {mode === 'upcoming' ? (
-              <div className="w-full max-w-2xl">
-                <DropCountdown
-                  targetDate={new Date(product.releaseAt!).toISOString()}
-                  title={product.dropName || product.name}
-                  subtitle="Cuenta regresiva oficial del siguiente drop. Cuando termine, el lanzamiento entra en promocion fija durante 3 dias."
-                />
-              </div>
-            ) : product.images[0]?.url ? (
-              <div className="relative h-[280px] w-full overflow-hidden rounded-[22px] border border-white/10 bg-black/30 shadow-[0_20px_80px_rgba(0,0,0,0.35)] sm:h-[360px] sm:rounded-[28px] md:h-[420px] lg:h-[450px]">
-                <Image
-                  src={product.images[0].url}
-                  alt={product.name}
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                  className="object-cover"
-                  priority
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
-                <div className="absolute inset-x-4 bottom-4 rounded-[24px] border border-white/10 bg-black/55 p-4 backdrop-blur-xl sm:inset-x-5 sm:bottom-5 sm:p-5">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/55 sm:text-xs">
-                    Nuevo drop
-                  </p>
-                  <p className="mt-2 text-xl font-black text-white sm:text-2xl">
-                    {product.name}
-                  </p>
-                  <p className="mt-2 text-sm text-white/65">
-                    Disponible ahora mismo en la tienda.
-                  </p>
+          <div className="order-1 flex items-center justify-center lg:order-2">
+            <div className="relative h-[260px] w-full overflow-hidden rounded-[22px] border border-white/10 bg-black/30 shadow-[0_20px_80px_rgba(0,0,0,0.35)] sm:h-[320px] sm:rounded-[28px] md:h-[380px] lg:h-[450px]">
+              {product.images[0]?.url ? (
+                <>
+                  <Image
+                    src={product.images[0].url}
+                    alt={product.name}
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    className="object-cover"
+                    priority
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+                </>
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-center text-white/55">
+                  Sin imagen principal
                 </div>
-              </div>
-            ) : (
-              <div className="grid w-full grid-cols-2 gap-3 sm:gap-4">
-                <div className="rounded-[20px] border border-white/10 bg-black/35 p-4 sm:rounded-[26px] sm:p-6">
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-white/45 sm:text-sm">
-                    MBE
-                  </p>
-                  <p className="mt-3 text-xl font-black text-white sm:text-2xl">
-                    New Drop
-                  </p>
-                </div>
-                <div className="rounded-[20px] border border-white/10 bg-black/35 p-4 sm:rounded-[26px] sm:p-6">
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-white/45 sm:text-sm">
-                    Estado
-                  </p>
-                  <p className="mt-3 text-xl font-black text-white sm:text-2xl">
-                    Disponible
-                  </p>
-                </div>
-                <div className="rounded-[20px] border border-white/10 bg-black/35 p-4 sm:rounded-[26px] sm:p-6">
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-white/45 sm:text-sm">
-                    Categoria
-                  </p>
-                  <p className="mt-3 text-xl font-black text-white sm:text-2xl">
-                    {product.category.name}
-                  </p>
-                </div>
-                <div className="rounded-[20px] border border-white/10 bg-black/35 p-4 sm:rounded-[26px] sm:p-6">
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-white/45 sm:text-sm">
-                    Marca
-                  </p>
-                  <p className="mt-3 text-xl font-black text-white sm:text-2xl">
-                    MBE
-                  </p>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -410,9 +308,9 @@ export default async function HomePage() {
 
             <div className="flex flex-1">
               {homeMode === 'upcoming-drop' && nextDrop ? (
-                <DropHero mode="upcoming" product={nextDrop} />
+                <UpcomingDropOnlyCountdown product={nextDrop} />
               ) : homeMode === 'live-drop' && recentDrop ? (
-                <DropHero mode="live" product={recentDrop} />
+                <LiveDropFixedHero product={recentDrop} />
               ) : (
                 <HomeHeroCarousel slides={heroSlides} />
               )}
