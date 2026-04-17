@@ -104,7 +104,7 @@ export function DropCountdown({
         {mounted && timeLeft.expired ? (
           <div className="rounded-3xl border border-white/10 bg-black/40 px-5 py-5">
             <p className="text-center text-lg font-semibold text-white md:text-xl">
-              El drop ya está disponible.
+              El drop ya esta disponible.
             </p>
           </div>
         ) : (
