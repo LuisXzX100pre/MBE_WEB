@@ -2,6 +2,7 @@ import { Header } from '@/components/store/header'
 import { Footer } from '@/components/store/footer'
 import { ProductCard } from '@/components/store/product-card'
 import { prisma } from '@/lib/prisma'
+import { releaseExpiredDrops } from '@/lib/release-drops'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,6 +26,8 @@ async function getCategories() {
 }
 
 export default async function ProductsPage() {
+  await releaseExpiredDrops()
+
   const products = await getProducts()
   const categories = await getCategories()
 
@@ -64,7 +67,13 @@ export default async function ProductsPage() {
           {products.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {products.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                <ProductCard
+                  key={product.id}
+                  product={{
+                    ...product,
+                    releaseAt: product.releaseAt,
+                  }}
+                />
               ))}
             </div>
           ) : (

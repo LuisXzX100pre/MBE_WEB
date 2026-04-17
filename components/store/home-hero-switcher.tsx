@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -29,6 +29,9 @@ type Props = {
   recentDrop: DropProduct | null
   heroSlides: HomeHeroSlide[]
 }
+
+const DROP_SOUND_DURATION_MS = 10000
+const DROP_REFRESH_DELAY_MS = 12000
 
 function LiveDropFixedHero({ product }: { product: DropProduct }) {
   return (
@@ -97,28 +100,38 @@ function LiveDropFixedHero({ product }: { product: DropProduct }) {
   )
 }
 
-function DropReleaseOverlay({ visible }: { visible: boolean }) {
+function DropReleaseOverlay({
+  visible,
+  title,
+}: {
+  visible: boolean
+  title: string
+}) {
   return (
     <div
-      className={`pointer-events-none absolute inset-0 z-30 flex items-center justify-center transition-all duration-700 ${
+      className={`pointer-events-none absolute inset-0 z-30 flex items-center justify-center transition-opacity duration-700 ${
         visible ? 'opacity-100' : 'opacity-0'
       }`}
     >
-      <div className="absolute inset-0 bg-black/55 backdrop-blur-[4px]" />
-      <div
-        className={`relative flex h-[220px] w-[220px] items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-[0_0_120px_rgba(255,255,255,0.18)] transition-all duration-700 sm:h-[280px] sm:w-[280px] ${
-          visible ? 'scale-100' : 'scale-75'
-        }`}
-      >
-        <div className="absolute inset-0 rounded-full border border-white/20 animate-ping" />
-        <div className="text-center">
-          <p className="text-[11px] uppercase tracking-[0.38em] text-white/70 sm:text-xs">
-            DROP LIVE
-          </p>
-          <h3 className="mt-3 text-3xl font-black text-white sm:text-5xl">
-            YA SALIÓ
-          </h3>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-[6px]" />
+
+      <div className="relative px-6 text-center">
+        <div className="mx-auto flex h-[220px] w-[220px] items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-[0_0_120px_rgba(255,255,255,0.18)] sm:h-[300px] sm:w-[300px]">
+          <div className="absolute inset-0 rounded-full border border-white/20 animate-ping" />
+          <div className="absolute inset-[-18px] rounded-full border border-white/10 animate-pulse" />
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.38em] text-white/70 sm:text-xs">
+              DROP LIVE
+            </p>
+            <h3 className="mt-3 text-3xl font-black text-white sm:text-5xl">
+              YA SALIÓ
+            </h3>
+          </div>
         </div>
+
+        <h4 className="mt-8 text-3xl font-black tracking-tight text-white sm:text-5xl">
+          {title}
+        </h4>
       </div>
     </div>
   )
@@ -126,15 +139,38 @@ function DropReleaseOverlay({ visible }: { visible: boolean }) {
 
 export function HomeHeroSwitcher({ nextDrop, recentDrop, heroSlides }: Props) {
   const router = useRouter()
-  const [countdownFinished, setCountdownFinished] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const [showReleaseAnimation, setShowReleaseAnimation] = useState(false)
   const alreadyTriggeredRef = useRef(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const overlayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    setMounted(true)
+
+    return () => {
+      if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current)
+      if (overlayTimeoutRef.current) clearTimeout(overlayTimeoutRef.current)
+
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current.currentTime = 0
+      }
+    }
+  }, [])
 
   const mode = useMemo(() => {
-    if (nextDrop && !countdownFinished) return 'upcoming-drop'
+    if (!mounted) {
+      if (nextDrop) return 'upcoming-drop'
+      if (recentDrop) return 'live-drop'
+      return 'carousel'
+    }
+
+    if (nextDrop) return 'upcoming-drop'
     if (recentDrop) return 'live-drop'
     return 'carousel'
-  }, [nextDrop, recentDrop, countdownFinished])
+  }, [mounted, nextDrop, recentDrop])
 
   const handleCountdownExpire = useCallback(async () => {
     if (alreadyTriggeredRef.current) return
@@ -144,25 +180,29 @@ export function HomeHeroSwitcher({ nextDrop, recentDrop, heroSlides }: Props) {
 
     try {
       const audio = new Audio('/sounds/drop-fall.mp3')
+      audio.preload = 'auto'
       audio.volume = 1
+      audioRef.current = audio
       await audio.play()
     } catch {
-      // si el navegador bloquea autoplay, no rompemos nada
+      // si el navegador bloquea autoplay no rompemos la UI
     }
 
-    setTimeout(() => {
-      setCountdownFinished(true)
-      router.refresh()
-    }, 1700)
-
-    setTimeout(() => {
+    overlayTimeoutRef.current = setTimeout(() => {
       setShowReleaseAnimation(false)
-    }, 2600)
+    }, DROP_SOUND_DURATION_MS)
+
+    refreshTimeoutRef.current = setTimeout(() => {
+      router.refresh()
+    }, DROP_REFRESH_DELAY_MS)
   }, [router])
 
   return (
     <div className="relative flex w-full flex-1">
-      <DropReleaseOverlay visible={showReleaseAnimation} />
+      <DropReleaseOverlay
+        visible={showReleaseAnimation}
+        title={nextDrop?.dropName || nextDrop?.name || 'NUEVO DROP'}
+      />
 
       {mode === 'upcoming-drop' && nextDrop ? (
         <div className="flex w-full flex-1 items-center justify-center">

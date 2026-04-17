@@ -10,6 +10,7 @@ import {
 } from '@/components/store/home-hero-carousel'
 import { HomeHeroSwitcher } from '@/components/store/home-hero-switcher'
 import { prisma } from '@/lib/prisma'
+import { releaseExpiredDrops } from '@/lib/release-drops'
 import { ArrowRight } from 'lucide-react'
 import { isWithinDropWindow } from '@/lib/drop'
 
@@ -162,6 +163,8 @@ function buildHeroSlides(
 }
 
 export default async function HomePage() {
+  await releaseExpiredDrops()
+
   const [products, promoProducts, categories, nextDrop, recentDrop] = await Promise.all([
     getFeaturedProducts(),
     getPromoProducts(),
