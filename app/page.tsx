@@ -216,33 +216,6 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {categories.length > 0 && (
-          <section className="mx-auto w-full max-w-[1700px] px-4 py-16 sm:px-6 md:py-20 lg:px-8">
-            <h2 className="mb-8 text-2xl font-bold md:text-3xl">Categorias</h2>
-
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              {categories.map((category) => (
-                <Link
-                  key={category.id}
-                  href={`/categorias/${category.slug}`}
-                  className="group relative aspect-square overflow-hidden rounded-2xl border border-border bg-card transition-colors hover:border-muted-foreground"
-                >
-                  <div className="absolute inset-0 flex items-center justify-center p-4">
-                    <div className="text-center">
-                      <h3 className="text-base font-bold transition-transform group-hover:scale-110 sm:text-lg">
-                        {category.name}
-                      </h3>
-                      <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-                        {category._count.products} productos
-                      </p>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
-
         <section className="mx-auto w-full max-w-[1700px] px-4 py-16 sm:px-6 md:py-20 lg:px-8">
           <div className="mb-8 flex items-center justify-between gap-4">
             <h2 className="text-2xl font-bold md:text-3xl">Ultimos productos</h2>
@@ -274,6 +247,33 @@ export default async function HomePage() {
             </div>
           )}
         </section>
+
+        {categories.length > 0 && (
+          <section className="mx-auto w-full max-w-[1700px] px-4 py-16 sm:px-6 md:py-20 lg:px-8">
+            <h2 className="mb-8 text-2xl font-bold md:text-3xl">Categorias</h2>
+
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              {categories.map((category) => (
+                <Link
+                  key={category.id}
+                  href={`/categorias/${category.slug}`}
+                  className="group relative aspect-square overflow-hidden rounded-2xl border border-border bg-card transition-colors hover:border-muted-foreground"
+                >
+                  <div className="absolute inset-0 flex items-center justify-center p-4">
+                    <div className="text-center">
+                      <h3 className="text-base font-bold transition-transform group-hover:scale-110 sm:text-lg">
+                        {category.name}
+                      </h3>
+                      <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+                        {category._count.products} productos
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
 
         <CommunitySection />
       </main>
