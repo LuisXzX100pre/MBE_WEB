@@ -167,20 +167,12 @@ function UpcomingDropOnlyCountdown({
   product: NonNullable<Awaited<ReturnType<typeof getNextDrop>>>
 }) {
   return (
-    <div className="w-full">
-      <div className="relative overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-br from-[#0f0f10] via-[#171717] to-[#0a0a0a] shadow-[0_25px_90px_rgba(0,0,0,0.35)] sm:rounded-[32px] lg:rounded-[38px]">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.05),transparent_22%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px] opacity-20" />
-
-        <div className="relative flex min-h-[420px] items-center justify-center px-4 py-8 sm:min-h-[500px] sm:px-6 md:min-h-[560px] md:px-8 lg:min-h-[520px] xl:min-h-[560px]">
-          <div className="w-full max-w-3xl">
-            <DropCountdown
-              targetDate={new Date(product.releaseAt!).toISOString()}
-              title={product.dropName || product.name}
-              subtitle="Cuenta regresiva oficial del siguiente drop. Cuando termine, el lanzamiento entra en promocion fija durante 3 dias."
-            />
-          </div>
-        </div>
+    <div className="flex w-full flex-1 items-center justify-center">
+      <div className="mx-auto flex w-full max-w-[1500px] items-center justify-center px-2 py-8 sm:px-4 md:px-6 lg:px-8">
+        <DropCountdown
+          targetDate={new Date(product.releaseAt!).toISOString()}
+          title={product.dropName || product.name}
+        />
       </div>
     </div>
   )

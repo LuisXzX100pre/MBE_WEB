@@ -41,13 +41,11 @@ function getTimeLeft(targetDate: Date): TimeLeft {
 interface DropCountdownProps {
   targetDate: string
   title?: string
-  subtitle?: string
 }
 
 export function DropCountdown({
   targetDate,
   title = 'NUEVO DROP MBE',
-  subtitle = 'Disponible muy pronto. Prepárate para el siguiente lanzamiento.',
 }: DropCountdownProps) {
   const parsedTargetDate = useMemo(() => new Date(targetDate), [targetDate])
   const [mounted, setMounted] = useState(false)
@@ -73,58 +71,52 @@ export function DropCountdown({
   }, [parsedTargetDate])
 
   const items = [
-    { label: 'Dias', value: mounted ? timeLeft.days : '--' },
-    { label: 'Horas', value: mounted ? timeLeft.hours : '--' },
-    { label: 'Minutos', value: mounted ? timeLeft.minutes : '--' },
-    { label: 'Segundos', value: mounted ? timeLeft.seconds : '--' },
+    { label: 'DIAS', value: mounted ? timeLeft.days : '--' },
+    { label: 'HORAS', value: mounted ? timeLeft.hours : '--' },
+    { label: 'MINUTOS', value: mounted ? timeLeft.minutes : '--' },
+    { label: 'SEGUNDOS', value: mounted ? timeLeft.seconds : '--' },
   ]
 
   return (
-    <div className="mx-auto w-full max-w-4xl">
-      <div className="rounded-[32px] border border-white/10 bg-white/[0.035] px-4 py-5 shadow-[0_20px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:px-6 sm:py-6 md:px-8 md:py-8">
-        <div className="mb-4 flex items-center justify-center gap-3">
-          <span className="relative flex h-3 w-3 shrink-0">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70 opacity-75" />
-            <span className="relative inline-flex h-3 w-3 rounded-full bg-white" />
-          </span>
+    <div className="mx-auto flex w-full max-w-[1400px] flex-col items-center justify-center">
+      <div className="mb-6 flex items-center justify-center gap-3 sm:mb-8">
+        <span className="relative flex h-3.5 w-3.5 shrink-0">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70 opacity-75" />
+          <span className="relative inline-flex h-3.5 w-3.5 rounded-full bg-white" />
+        </span>
 
-          <p className="text-[10px] font-semibold uppercase tracking-[0.34em] text-white/70 sm:text-xs">
-            Proximo Drop
+        <p className="text-[11px] font-semibold uppercase tracking-[0.38em] text-white/70 sm:text-xs md:text-sm">
+          PROXIMO DROP
+        </p>
+      </div>
+
+      <h2 className="mx-auto mb-8 max-w-5xl text-center text-4xl font-black leading-[0.92] tracking-tight text-white sm:mb-10 sm:text-5xl md:text-6xl lg:text-7xl xl:text-[5.5rem]">
+        {title}
+      </h2>
+
+      {mounted && timeLeft.expired ? (
+        <div className="text-center">
+          <p className="text-2xl font-semibold text-white sm:text-3xl">
+            El drop ya esta disponible.
           </p>
         </div>
-
-        <h2 className="mx-auto mb-3 max-w-3xl text-center text-3xl font-black leading-[0.95] tracking-tight text-white sm:text-4xl md:text-5xl">
-          {title}
-        </h2>
-
-        <p className="mx-auto mb-5 max-w-2xl text-center text-sm text-white/60 sm:text-base">
-          {subtitle}
-        </p>
-
-        {mounted && timeLeft.expired ? (
-          <div className="rounded-3xl border border-white/10 bg-black/40 px-5 py-5">
-            <p className="text-center text-lg font-semibold text-white md:text-xl">
-              El drop ya esta disponible.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-            {items.map((item) => (
-              <div
-                key={item.label}
-                className="rounded-[24px] border border-white/10 bg-black/45 px-3 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:px-4 sm:py-5"
-              >
-                <div className="text-center text-4xl font-black leading-none text-white tabular-nums sm:text-5xl">
-                  {item.value}
-                </div>
-                <div className="mt-2 text-center text-[10px] uppercase tracking-[0.28em] text-white/45 sm:text-xs">
-                  {item.label}
-                </div>
+      ) : (
+        <div className="grid w-full max-w-[1200px] grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4 lg:gap-6">
+          {items.map((item) => (
+            <div
+              key={item.label}
+              className="rounded-[28px] border border-white/10 bg-transparent px-4 py-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-[2px] sm:px-5 sm:py-8 lg:px-6 lg:py-10"
+            >
+              <div className="text-5xl font-black leading-none text-white tabular-nums sm:text-6xl md:text-7xl lg:text-[5.5rem]">
+                {item.value}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+              <div className="mt-4 text-[11px] uppercase tracking-[0.38em] text-white/45 sm:text-xs md:text-sm">
+                {item.label}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
