@@ -1,6 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { ArrowRight } from 'lucide-react'
 
 type TimeLeft = {
   expired: boolean
@@ -41,11 +43,15 @@ function getTimeLeft(targetDate: Date): TimeLeft {
 interface DropCountdownProps {
   targetDate: string
   title?: string
+  ctaHref?: string
+  ctaLabel?: string
 }
 
 export function DropCountdown({
   targetDate,
   title = 'NUEVO DROP MBE',
+  ctaHref,
+  ctaLabel = 'Ver drop',
 }: DropCountdownProps) {
   const parsedTargetDate = useMemo(() => new Date(targetDate), [targetDate])
   const [mounted, setMounted] = useState(false)
@@ -101,21 +107,35 @@ export function DropCountdown({
           </p>
         </div>
       ) : (
-        <div className="grid w-full max-w-[1200px] grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4 lg:gap-6">
-          {items.map((item) => (
-            <div
-              key={item.label}
-              className="rounded-[28px] border border-white/10 bg-transparent px-4 py-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-[2px] sm:px-5 sm:py-8 lg:px-6 lg:py-10"
-            >
-              <div className="text-5xl font-black leading-none text-white tabular-nums sm:text-6xl md:text-7xl lg:text-[5.5rem]">
-                {item.value}
+        <>
+          <div className="grid w-full max-w-[1200px] grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4 lg:gap-6">
+            {items.map((item) => (
+              <div
+                key={item.label}
+                className="rounded-[28px] border border-white/10 bg-transparent px-4 py-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-[2px] sm:px-5 sm:py-8 lg:px-6 lg:py-10"
+              >
+                <div className="text-5xl font-black leading-none text-white tabular-nums sm:text-6xl md:text-7xl lg:text-[5.5rem]">
+                  {item.value}
+                </div>
+                <div className="mt-4 text-[11px] uppercase tracking-[0.38em] text-white/45 sm:text-xs md:text-sm">
+                  {item.label}
+                </div>
               </div>
-              <div className="mt-4 text-[11px] uppercase tracking-[0.38em] text-white/45 sm:text-xs md:text-sm">
-                {item.label}
-              </div>
+            ))}
+          </div>
+
+          {ctaHref && (
+            <div className="mt-8 sm:mt-10">
+              <Link
+                href={ctaHref}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition-all hover:scale-[1.02] hover:opacity-90 sm:px-7 sm:py-3.5 sm:text-base"
+              >
+                {ctaLabel}
+                <ArrowRight className="h-4 w-4" />
+              </Link>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </div>
   )

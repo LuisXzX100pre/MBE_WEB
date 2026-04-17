@@ -172,6 +172,8 @@ function UpcomingDropOnlyCountdown({
         <DropCountdown
           targetDate={new Date(product.releaseAt!).toISOString()}
           title={product.dropName || product.name}
+          ctaHref={`/productos/${product.id}`}
+          ctaLabel="Ver drop"
         />
       </div>
     </div>
