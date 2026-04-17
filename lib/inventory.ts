@@ -14,6 +14,49 @@ function shouldDiscountInventory(status: string) {
   return STOCK_DISCOUNT_STATUSES.has(status)
 }
 
+async function getOrderWithItems(orderId: string) {
+  return prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      items: true,
+    },
+  })
+}
+
+async function getAffectedProductRoutes(orderId: string) {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      items: {
+        include: {
+          product: {
+            include: {
+              category: true,
+            },
+          },
+        },
+      },
+    },
+  })
+
+  if (!order) return null
+
+  const productIds = Array.from(new Set(order.items.map((item) => item.productId)))
+  const categorySlugs = Array.from(
+    new Set(
+      order.items
+        .map((item) => item.product?.category?.slug)
+        .filter((slug): slug is string => Boolean(slug))
+    )
+  )
+
+  return {
+    order,
+    productIds,
+    categorySlugs,
+  }
+}
+
 export async function applyInventoryForOrder(orderId: string) {
   return prisma.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
@@ -168,21 +211,21 @@ export async function syncInventoryByStatus(orderId: string, nextStatus: string)
 }
 
 async function revalidateInventoryPaths(orderId: string) {
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
-    include: {
-      items: true,
-    },
-  })
+  const affected = await getAffectedProductRoutes(orderId)
 
-  if (!order) return
+  if (!affected) return
 
+  revalidatePath('/')
   revalidatePath('/productos')
   revalidatePath('/admin/productos')
   revalidatePath('/mis-pedidos')
   revalidatePath(`/mis-pedidos/${orderId}`)
 
-  for (const item of order.items) {
-    revalidatePath(`/productos/${item.productId}`)
+  for (const productId of affected.productIds) {
+    revalidatePath(`/productos/${productId}`)
+  }
+
+  for (const categorySlug of affected.categorySlugs) {
+    revalidatePath(`/categorias/${categorySlug}`)
   }
 }
