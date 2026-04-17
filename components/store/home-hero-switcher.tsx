@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { DropCountdown } from '@/components/store/drop-countdown'
 import { HomeHeroCarousel, type HomeHeroSlide } from '@/components/store/home-hero-carousel'
+import { playUnlockedDropSound } from '@/lib/audio-unlock'
 
 type DropProduct = {
   id: string
@@ -113,12 +114,19 @@ function DropReleaseOverlay({
         visible ? 'opacity-100' : 'opacity-0'
       }`}
     >
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-[6px]" />
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-[8px]" />
+
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute left-1/2 top-[-10%] h-[170%] w-[2px] -translate-x-1/2 bg-gradient-to-b from-transparent via-white/70 to-transparent opacity-80 animate-pulse" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.18),transparent_36%)]" />
+      </div>
 
       <div className="relative px-6 text-center">
         <div className="mx-auto flex h-[220px] w-[220px] items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-[0_0_120px_rgba(255,255,255,0.18)] sm:h-[300px] sm:w-[300px]">
           <div className="absolute inset-0 rounded-full border border-white/20 animate-ping" />
-          <div className="absolute inset-[-18px] rounded-full border border-white/10 animate-pulse" />
+          <div className="absolute inset-[-20px] rounded-full border border-white/10 animate-pulse" />
+          <div className="absolute inset-[-42px] rounded-full border border-white/5 animate-pulse" />
+
           <div>
             <p className="text-[11px] uppercase tracking-[0.38em] text-white/70 sm:text-xs">
               DROP LIVE
@@ -132,6 +140,10 @@ function DropReleaseOverlay({
         <h4 className="mt-8 text-3xl font-black tracking-tight text-white sm:text-5xl">
           {title}
         </h4>
+
+        <p className="mt-3 text-sm uppercase tracking-[0.34em] text-white/55 sm:text-base">
+          MBE NEW DROP
+        </p>
       </div>
     </div>
   )
@@ -178,15 +190,11 @@ export function HomeHeroSwitcher({ nextDrop, recentDrop, heroSlides }: Props) {
 
     setShowReleaseAnimation(true)
 
-    try {
-      const audio = new Audio('/sounds/drop-fall.mp3')
-      audio.preload = 'auto'
-      audio.volume = 1
-      audioRef.current = audio
-      await audio.play()
-    } catch {
-      // si el navegador bloquea autoplay no rompemos la UI
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate?.([180, 120, 220, 120, 300, 150, 250])
     }
+
+    audioRef.current = await playUnlockedDropSound()
 
     overlayTimeoutRef.current = setTimeout(() => {
       setShowReleaseAnimation(false)

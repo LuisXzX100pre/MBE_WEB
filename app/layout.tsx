@@ -4,6 +4,7 @@ import './globals.css'
 import { AuthProvider } from '@/contexts/auth-context'
 import { CartProvider } from '@/contexts/cart-context'
 import { Toaster } from '@/components/ui/toaster'
+import { AudioUnlockProvider } from '@/components/audio-unlock-provider'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -34,6 +35,8 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={`${inter.variable} ${spaceMono.variable} font-sans antialiased`}>
+        <AudioUnlockProvider />
+
         <AuthProvider>
           <CartProvider>
             {children}
