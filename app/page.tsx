@@ -4,10 +4,7 @@ import { Header } from '@/components/store/header'
 import { Footer } from '@/components/store/footer'
 import { ProductCard } from '@/components/store/product-card'
 import { CommunitySection } from '@/components/store/community-section'
-import {
-  HomeHeroCarousel,
-  type HomeHeroSlide,
-} from '@/components/store/home-hero-carousel'
+import { type HomeHeroSlide } from '@/components/store/home-hero-carousel'
 import { HomeHeroSwitcher } from '@/components/store/home-hero-switcher'
 import { prisma } from '@/lib/prisma'
 import { releaseExpiredDrops } from '@/lib/release-drops'
@@ -188,22 +185,18 @@ export default async function HomePage() {
           style={{ minHeight: 'calc(100svh - 4rem)' }}
         >
           <div className="absolute inset-0 bg-gradient-to-b from-card via-background to-background" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.07),transparent_32%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.04),transparent_26%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.06),transparent_32%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.04),transparent_26%)]" />
           <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:42px_42px] opacity-20" />
-          <div className="absolute left-1/2 top-0 h-[360px] w-[360px] -translate-x-1/2 rounded-full bg-red-600/10 blur-3xl" />
+          <div className="absolute left-1/2 top-0 h-[360px] w-[360px] -translate-x-1/2 rounded-full bg-white/[0.04] blur-3xl" />
 
           <div className="relative mx-auto flex h-full w-full max-w-[1700px] flex-col">
             <div className="flex flex-col items-center pt-2 sm:pt-3 md:pt-4">
-              <div className="rounded-full border border-white/10 bg-white/[0.03] px-5 py-2 text-[10px] font-bold uppercase tracking-[0.28em] text-white/65 shadow-[0_10px_40px_rgba(0,0,0,0.18)] sm:text-xs">
-                MBE Studio
-              </div>
-
               <Image
                 src="/logo.png"
                 alt="MBE Logo"
                 width={340}
                 height={160}
-                className="mx-auto mt-4 h-14 w-auto object-contain sm:h-16 md:h-20"
+                className="mx-auto mt-2 h-14 w-auto object-contain sm:h-16 md:h-20"
                 priority
               />
 
