@@ -11,6 +11,8 @@ datasource db {
 model User {
   id        String   @id @default(cuid())
   username  String   @unique
+  email     String?  @unique
+  phone     String?
   password  String
   role      Role     @default(CLIENTE)
   createdAt DateTime @default(now())
@@ -108,50 +110,50 @@ model CartItem {
 }
 
 model Order {
-  id                    String      @id @default(cuid())
-  userId                String
-  user                  User        @relation(fields: [userId], references: [id])
+  id                     String      @id @default(cuid())
+  userId                 String
+  user                   User        @relation(fields: [userId], references: [id])
 
-  subtotal              Float       @default(0)
-  shippingCost          Float       @default(0)
-  total                 Float
-  currency              String      @default("MXN")
+  subtotal               Float       @default(0)
+  shippingCost           Float       @default(0)
+  total                  Float
+  currency               String      @default("MXN")
 
-  status                OrderStatus @default(PENDING)
+  status                 OrderStatus @default(PENDING)
 
-  shippingAddress       String?
-  shippingFullName      String?
-  shippingPhone         String?
-  shippingEmail         String?
-  shippingPostalCode    String?
-  shippingState         String?
-  shippingCity          String?
-  shippingNeighborhood  String?
-  shippingStreet        String?
-  shippingExtNumber     String?
-  shippingIntNumber     String?
-  shippingReference     String?
-  shippingCountry       String      @default("MX")
+  shippingAddress        String?
+  shippingFullName       String?
+  shippingPhone          String?
+  shippingEmail          String?
+  shippingPostalCode     String?
+  shippingState          String?
+  shippingCity           String?
+  shippingNeighborhood   String?
+  shippingStreet         String?
+  shippingExtNumber      String?
+  shippingIntNumber      String?
+  shippingReference      String?
+  shippingCountry        String      @default("MX")
 
-  shippingCarrier       String?
-  shippingService       String?
-  shippingRateId        String?
-  shippingQuotationId   String?
-  shippingBucket        String?
-  shippingEstimatedDays Int?
+  shippingCarrier        String?
+  shippingService        String?
+  shippingRateId         String?
+  shippingQuotationId    String?
+  shippingBucket         String?
+  shippingEstimatedDays  Int?
   shippingTrackingNumber String?
-  shippingTrackingUrl   String?
-  shippingLabelUrl      String?
-  shippingQuoteJson     Json?
-  skydropxShipmentId    String?
+  shippingTrackingUrl    String?
+  shippingLabelUrl       String?
+  shippingQuoteJson      Json?
+  skydropxShipmentId     String?
 
-  inventoryDiscounted   Boolean     @default(false)
+  inventoryDiscounted    Boolean     @default(false)
 
-  items                 OrderItem[]
-  payment               Payment?
+  items                  OrderItem[]
+  payment                Payment?
 
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
 }
 
 enum OrderStatus {

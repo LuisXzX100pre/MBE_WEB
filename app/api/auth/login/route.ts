@@ -6,17 +6,40 @@ import { cookies } from 'next/headers'
 
 export async function POST(request: Request) {
   try {
-    const { username, password } = await request.json()
+    const body = await request.json()
 
-    if (!username || !password) {
+    const identifier = String(
+      body?.identifier ?? body?.username ?? body?.email ?? ''
+    ).trim()
+
+    const password = String(body?.password ?? '')
+
+    if (!identifier || !password) {
       return NextResponse.json(
-        { error: 'Usuario y contraseña son requeridos' },
+        { error: 'Usuario o correo y contraseña son requeridos' },
         { status: 400 }
       )
     }
 
-    const user = await prisma.user.findUnique({
-      where: { username },
+    const normalizedEmail = identifier.toLowerCase()
+
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          {
+            username: {
+              equals: identifier,
+              mode: 'insensitive',
+            },
+          },
+          {
+            email: {
+              equals: normalizedEmail,
+              mode: 'insensitive',
+            },
+          },
+        ],
+      },
     })
 
     if (!user) {
@@ -43,12 +66,15 @@ export async function POST(request: Request) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7,
+      path: '/',
     })
 
     return NextResponse.json({
       user: {
         id: user.id,
         username: user.username,
+        email: user.email,
+        phone: user.phone,
         role: user.role,
       },
     })

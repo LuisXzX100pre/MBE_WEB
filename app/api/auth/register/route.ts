@@ -4,49 +4,127 @@ import { prisma } from '@/lib/prisma'
 import { hashPassword, createToken } from '@/lib/auth'
 import { cookies } from 'next/headers'
 
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
+function isValidUsername(username: string) {
+  return /^[a-zA-Z0-9._-]{3,24}$/.test(username)
+}
+
+function normalizePhone(phone: string) {
+  return phone.replace(/\D/g, '')
+}
+
+function isStrongPassword(password: string) {
+  return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/.test(password)
+}
+
 export async function POST(request: Request) {
   try {
-    const { username, password } = await request.json()
+    const body = await request.json()
 
-    if (!username || !password) {
+    const username = String(body?.username ?? '').trim()
+    const email = String(body?.email ?? '').trim().toLowerCase()
+    const phone = normalizePhone(String(body?.phone ?? '').trim())
+    const password = String(body?.password ?? '')
+
+    if (!username || !email || !phone || !password) {
       return NextResponse.json(
-        { error: 'Usuario y contraseña son requeridos' },
+        {
+          error:
+            'Usuario, correo, teléfono y contraseña son requeridos',
+        },
         { status: 400 }
       )
     }
 
-    if (password.length < 6) {
+    if (!isValidUsername(username)) {
       return NextResponse.json(
-        { error: 'La contraseña debe tener al menos 6 caracteres' },
+        {
+          error:
+            'El usuario debe tener entre 3 y 24 caracteres y solo puede incluir letras, números, punto, guion o guion bajo',
+        },
         { status: 400 }
       )
     }
 
-    const existingUser = await prisma.user.findUnique({
-      where: { username },
+    if (!isValidEmail(email)) {
+      return NextResponse.json(
+        { error: 'Ingresa un correo válido' },
+        { status: 400 }
+      )
+    }
+
+    if (phone.length < 10 || phone.length > 15) {
+      return NextResponse.json(
+        { error: 'Ingresa un teléfono válido' },
+        { status: 400 }
+      )
+    }
+
+    if (!isStrongPassword(password)) {
+      return NextResponse.json(
+        {
+          error:
+            'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo',
+        },
+        { status: 400 }
+      )
+    }
+
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          {
+            username: {
+              equals: username,
+              mode: 'insensitive',
+            },
+          },
+          {
+            email: {
+              equals: email,
+              mode: 'insensitive',
+            },
+          },
+        ],
+      },
     })
 
-    if (existingUser) {
+    if (existingUser?.username?.toLowerCase() === username.toLowerCase()) {
       return NextResponse.json(
-        { error: 'El usuario ya existe' },
+        { error: 'Ese nombre de usuario ya está en uso' },
+        { status: 400 }
+      )
+    }
+
+    if (existingUser?.email?.toLowerCase() === email.toLowerCase()) {
+      return NextResponse.json(
+        { error: 'Ese correo ya está registrado' },
         { status: 400 }
       )
     }
 
     const hashedPassword = await hashPassword(password)
 
-    const user = await prisma.user.create({
-      data: {
-        username,
-        password: hashedPassword,
-      },
-    })
+    const user = await prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          username,
+          email,
+          phone,
+          password: hashedPassword,
+        },
+      })
 
-    // Crear carrito para el usuario
-    await prisma.cart.create({
-      data: {
-        userId: user.id,
-      },
+      await tx.cart.create({
+        data: {
+          userId: createdUser.id,
+        },
+      })
+
+      return createdUser
     })
 
     const token = await createToken(user.id)
@@ -56,13 +134,16 @@ export async function POST(request: Request) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 dias
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/',
     })
 
     return NextResponse.json({
       user: {
         id: user.id,
         username: user.username,
+        email: user.email,
+        phone: user.phone,
         role: user.role,
       },
     })

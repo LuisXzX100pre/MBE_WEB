@@ -11,7 +11,8 @@ import { Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react'
 export default function LoginPage() {
   const router = useRouter()
   const { login } = useAuth()
-  const [username, setUsername] = useState('')
+
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
@@ -22,7 +23,7 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
 
-    const result = await login(username, password)
+    const result = await login(identifier, password)
 
     setLoading(false)
 
@@ -30,16 +31,14 @@ export default function LoginPage() {
       router.push('/')
       router.refresh()
     } else {
-      setError(result.error || 'Error al iniciar sesion')
+      setError(result.error || 'Error al iniciar sesión')
     }
   }
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Left side - Form */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
-          {/* Logo */}
           <Link href="/" className="inline-block mb-12">
             <Image
               src="/logo.png"
@@ -50,33 +49,32 @@ export default function LoginPage() {
             />
           </Link>
 
-          {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold mb-2">Bienvenido de vuelta</h1>
             <p className="text-muted-foreground">
-              Ingresa tus credenciales para acceder a tu cuenta
+              Inicia sesión con tu usuario o correo electrónico
             </p>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-medium mb-2">
-                Usuario
+                Usuario o correo
               </label>
               <input
                 type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 className="w-full px-4 py-3 bg-card border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
-                placeholder="Tu nombre de usuario"
+                placeholder="Tu usuario o tu correo"
+                autoComplete="username"
                 required
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-2">
-                Contrasena
+                Contraseña
               </label>
               <div className="relative">
                 <input
@@ -84,14 +82,15 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full px-4 py-3 bg-card border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors pr-12"
-                  placeholder="Tu contrasena"
+                  placeholder="Tu contraseña"
+                  autoComplete="current-password"
                   required
-                  minLength={6}
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => setShowPassword((prev) => !prev)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 >
                   {showPassword ? (
                     <EyeOff className="w-5 h-5" />
@@ -116,20 +115,19 @@ export default function LoginPage() {
               {loading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Iniciando sesion...
+                  Iniciando sesión...
                 </>
               ) : (
                 <>
-                  Iniciar sesion
+                  Iniciar sesión
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </>
               )}
             </button>
           </form>
 
-          {/* Register link */}
           <p className="mt-8 text-center text-muted-foreground">
-            No tienes cuenta?{' '}
+            ¿No tienes cuenta?{' '}
             <Link
               href="/registro"
               className="text-foreground font-medium hover:text-primary transition-colors"
@@ -138,7 +136,6 @@ export default function LoginPage() {
             </Link>
           </p>
 
-          {/* Back to home */}
           <Link
             href="/"
             className="mt-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -149,7 +146,6 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Right side - Visual */}
       <div className="hidden lg:flex flex-1 bg-card relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-primary/5" />
         <div className="relative z-10 flex items-center justify-center w-full p-12">
@@ -158,6 +154,7 @@ export default function LoginPage() {
             <p className="text-lg text-muted-foreground mb-8">
               Estilo urbano que define tu identidad
             </p>
+
             <div className="grid grid-cols-3 gap-4">
               {[1, 2, 3].map((i) => (
                 <div
@@ -168,7 +165,7 @@ export default function LoginPage() {
             </div>
           </div>
         </div>
-        {/* Decorative elements */}
+
         <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-primary/5 rounded-full blur-3xl" />
         <div className="absolute -top-20 -left-20 w-60 h-60 bg-primary/5 rounded-full blur-3xl" />
       </div>
