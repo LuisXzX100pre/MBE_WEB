@@ -21,6 +21,7 @@ async function getCart(userId: string) {
       },
     },
   })
+
   return cart
 }
 

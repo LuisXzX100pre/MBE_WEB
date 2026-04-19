@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {
@@ -28,6 +28,7 @@ import {
   X,
 } from 'lucide-react'
 import { PaymentCardPreview } from '@/components/store/payment-card-preview'
+import { MX_STATES, getStateNameByCode, type MexicoMunicipality } from '@/lib/mx-locations'
 
 interface CartItem {
   id: string
@@ -139,6 +140,117 @@ function sortShippingOptions(options: ShippingOption[]) {
   const order: ShippingBucket[] = ['cheapest', 'best_value', 'express']
   return [...options].sort(
     (a, b) => order.indexOf(a.bucket) - order.indexOf(b.bucket)
+  )
+}
+
+function FieldLabel({
+  children,
+  htmlFor,
+}: {
+  children: React.ReactNode
+  htmlFor?: string
+}) {
+  return (
+    <label
+      htmlFor={htmlFor}
+      className="mb-2 block text-sm font-medium text-white/90"
+    >
+      {children}
+    </label>
+  )
+}
+
+function DarkInput({
+  id,
+  value,
+  onChange,
+  placeholder,
+  type = 'text',
+  required = false,
+  disabled = false,
+  inputMode,
+  maxLength,
+}: {
+  id?: string
+  value: string
+  onChange: (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => void
+  placeholder?: string
+  type?: string
+  required?: boolean
+  disabled?: boolean
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']
+  maxLength?: number
+}) {
+  return (
+    <input
+      id={id}
+      type={type}
+      value={value}
+      onChange={onChange as React.ChangeEventHandler<HTMLInputElement>}
+      className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07] disabled:cursor-not-allowed disabled:opacity-60"
+      placeholder={placeholder}
+      required={required}
+      disabled={disabled}
+      inputMode={inputMode}
+      maxLength={maxLength}
+    />
+  )
+}
+
+function DarkTextarea({
+  value,
+  onChange,
+  placeholder,
+  rows = 3,
+}: {
+  value: string
+  onChange: React.ChangeEventHandler<HTMLTextAreaElement>
+  placeholder?: string
+  rows?: number
+}) {
+  return (
+    <textarea
+      value={value}
+      onChange={onChange}
+      rows={rows}
+      className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+      placeholder={placeholder}
+    />
+  )
+}
+
+function DarkSelect({
+  id,
+  value,
+  onChange,
+  required = false,
+  disabled = false,
+  children,
+}: {
+  id?: string
+  value: string
+  onChange: React.ChangeEventHandler<HTMLSelectElement>
+  required?: boolean
+  disabled?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <div className="relative">
+      <select
+        id={id}
+        value={value}
+        onChange={onChange}
+        required={required}
+        disabled={disabled}
+        className="w-full appearance-none rounded-2xl border border-white/10 bg-white/5 px-4 py-3 pr-11 text-white outline-none transition focus:border-white/20 focus:bg-white/[0.07] disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {children}
+      </select>
+
+      <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
+    </div>
   )
 }
 
@@ -344,6 +456,7 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
   const [cardholderName, setCardholderName] = useState('')
 
   const [postalCode, setPostalCode] = useState('')
+  const [stateCode, setStateCode] = useState('')
   const [stateName, setStateName] = useState('')
   const [city, setCity] = useState('')
   const [colony, setColony] = useState('')
@@ -352,6 +465,9 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
   const [intNumber, setIntNumber] = useState('')
   const [reference, setReference] = useState('')
   const [furtherInformation, setFurtherInformation] = useState('')
+
+  const [municipalities, setMunicipalities] = useState<MexicoMunicipality[]>([])
+  const [municipalitiesLoading, setMunicipalitiesLoading] = useState(false)
 
   const [brand, setBrand] = useState<CardBrand>('unknown')
   const [isCvcFocused, setIsCvcFocused] = useState(false)
@@ -380,13 +496,72 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
   const shippingFormatted = useMemo(() => money(shippingCost), [shippingCost])
   const grandTotalFormatted = useMemo(() => money(grandTotal), [grandTotal])
 
+  useEffect(() => {
+    if (!stateCode) {
+      setStateName('')
+      setMunicipalities([])
+      setCity('')
+      return
+    }
+
+    const nextStateName = getStateNameByCode(stateCode)
+    setStateName(nextStateName)
+    setCity('')
+    setMunicipalities([])
+    setSelectedShippingOption(null)
+    setShippingOptions([])
+
+    let cancelled = false
+
+    const loadMunicipalities = async () => {
+      try {
+        setMunicipalitiesLoading(true)
+
+        const response = await fetch(`/api/mx/municipalities/${stateCode}`, {
+          method: 'GET',
+          cache: 'force-cache',
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || 'No se pudieron cargar los municipios')
+        }
+
+        if (!cancelled) {
+          setMunicipalities(Array.isArray(data.municipalities) ? data.municipalities : [])
+        }
+      } catch (err) {
+        console.error('[mx:municipalities]', err)
+        if (!cancelled) {
+          setMunicipalities([])
+          setError(
+            err instanceof Error
+              ? err.message
+              : 'No se pudieron cargar los municipios'
+          )
+        }
+      } finally {
+        if (!cancelled) {
+          setMunicipalitiesLoading(false)
+        }
+      }
+    }
+
+    loadMunicipalities()
+
+    return () => {
+      cancelled = true
+    }
+  }, [stateCode])
+
   const validateAddressForQuote = () => {
     if (!recipient.trim()) return 'Falta el nombre del destinatario'
     if (!phone.trim()) return 'Falta el teléfono'
     if (!email.trim()) return 'Falta el correo electrónico'
     if (!postalCode.trim()) return 'Falta el código postal'
     if (!stateName.trim()) return 'Falta el estado'
-    if (!city.trim()) return 'Falta la ciudad'
+    if (!city.trim()) return 'Falta la ciudad o municipio'
     if (!colony.trim()) return 'Falta la colonia'
     if (!street.trim()) return 'Falta la calle'
     return null
@@ -717,165 +892,175 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
                   <div className="border-t border-white/10 px-4 pb-4 pt-4 sm:px-5 sm:pb-5">
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div className="md:col-span-2">
-                        <label className="mb-2 block text-sm font-medium text-white/90">
-                          Destinatario
-                        </label>
-                        <input
-                          type="text"
+                        <FieldLabel htmlFor="recipient">Destinatario</FieldLabel>
+                        <DarkInput
+                          id="recipient"
                           value={recipient}
                           onChange={(e) => setRecipient(e.target.value)}
-                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
                           placeholder="Nombre completo de quien recibe"
                           required
                         />
                       </div>
 
                       <div>
-                        <label className="mb-2 block text-sm font-medium text-white/90">
-                          Teléfono
-                        </label>
-                        <input
+                        <FieldLabel htmlFor="phone">Teléfono</FieldLabel>
+                        <DarkInput
+                          id="phone"
                           type="tel"
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
-                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
                           placeholder="+52 998..."
                           required
+                          inputMode="tel"
                         />
                       </div>
 
                       <div>
-                        <label className="mb-2 block text-sm font-medium text-white/90">
-                          Correo electrónico
-                        </label>
-                        <input
+                        <FieldLabel htmlFor="email">Correo electrónico</FieldLabel>
+                        <DarkInput
+                          id="email"
                           type="email"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
-                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
                           placeholder="tu@email.com"
                           required
                         />
                       </div>
 
                       <div>
-                        <label className="mb-2 block text-sm font-medium text-white/90">
-                          Código postal
-                        </label>
-                        <input
-                          type="text"
+                        <FieldLabel htmlFor="postalCode">Código postal</FieldLabel>
+                        <DarkInput
+                          id="postalCode"
                           value={postalCode}
-                          onChange={(e) => setPostalCode(e.target.value)}
-                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                          onChange={(e) =>
+                            setPostalCode(e.target.value.replace(/[^\d]/g, '').slice(0, 5))
+                          }
                           placeholder="77500"
                           required
+                          inputMode="numeric"
+                          maxLength={5}
                         />
                       </div>
 
                       <div>
-                        <label className="mb-2 block text-sm font-medium text-white/90">
-                          Estado
-                        </label>
-                        <input
-                          type="text"
-                          value={stateName}
-                          onChange={(e) => setStateName(e.target.value)}
-                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
-                          placeholder="Quintana Roo"
+                        <FieldLabel htmlFor="stateCode">Estado</FieldLabel>
+                        <DarkSelect
+                          id="stateCode"
+                          value={stateCode}
+                          onChange={(e) => setStateCode(e.target.value)}
                           required
-                        />
+                        >
+                          <option value="" className="bg-[#0b0b0b] text-white">
+                            Selecciona un estado
+                          </option>
+                          {MX_STATES.map((state) => (
+                            <option
+                              key={state.code}
+                              value={state.code}
+                              className="bg-[#0b0b0b] text-white"
+                            >
+                              {state.name}
+                            </option>
+                          ))}
+                        </DarkSelect>
                       </div>
 
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-white/90">
+                      <div className="md:col-span-2">
+                        <FieldLabel htmlFor="city">
                           Ciudad / Municipio
-                        </label>
-                        <input
-                          type="text"
+                        </FieldLabel>
+                        <DarkSelect
+                          id="city"
                           value={city}
                           onChange={(e) => setCity(e.target.value)}
-                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
-                          placeholder="Cancún"
                           required
-                        />
+                          disabled={!stateCode || municipalitiesLoading || municipalities.length === 0}
+                        >
+                          <option value="" className="bg-[#0b0b0b] text-white">
+                            {!stateCode
+                              ? 'Primero selecciona un estado'
+                              : municipalitiesLoading
+                                ? 'Cargando municipios...'
+                                : municipalities.length === 0
+                                  ? 'No hay municipios disponibles'
+                                  : 'Selecciona un municipio'}
+                          </option>
+
+                          {municipalities.map((municipality) => (
+                            <option
+                              key={municipality.code}
+                              value={municipality.name}
+                              className="bg-[#0b0b0b] text-white"
+                            >
+                              {municipality.name}
+                            </option>
+                          ))}
+                        </DarkSelect>
+
+                        {stateName && (
+                          <p className="mt-2 text-xs text-white/45">
+                            Estado seleccionado: {stateName}
+                          </p>
+                        )}
                       </div>
 
                       <div>
-                        <label className="mb-2 block text-sm font-medium text-white/90">
-                          Colonia
-                        </label>
-                        <input
-                          type="text"
+                        <FieldLabel htmlFor="colony">Colonia</FieldLabel>
+                        <DarkInput
+                          id="colony"
                           value={colony}
                           onChange={(e) => setColony(e.target.value)}
-                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
                           placeholder="Centro"
                           required
                         />
                       </div>
 
                       <div className="md:col-span-2">
-                        <label className="mb-2 block text-sm font-medium text-white/90">
-                          Calle
-                        </label>
-                        <input
-                          type="text"
+                        <FieldLabel htmlFor="street">Calle</FieldLabel>
+                        <DarkInput
+                          id="street"
                           value={street}
                           onChange={(e) => setStreet(e.target.value)}
-                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
                           placeholder="Av. Ejemplo"
                           required
                         />
                       </div>
 
                       <div>
-                        <label className="mb-2 block text-sm font-medium text-white/90">
-                          Número exterior
-                        </label>
-                        <input
-                          type="text"
+                        <FieldLabel htmlFor="extNumber">Número exterior</FieldLabel>
+                        <DarkInput
+                          id="extNumber"
                           value={extNumber}
                           onChange={(e) => setExtNumber(e.target.value)}
-                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
                           placeholder="123"
                         />
                       </div>
 
                       <div>
-                        <label className="mb-2 block text-sm font-medium text-white/90">
-                          Número interior
-                        </label>
-                        <input
-                          type="text"
+                        <FieldLabel htmlFor="intNumber">Número interior</FieldLabel>
+                        <DarkInput
+                          id="intNumber"
                           value={intNumber}
                           onChange={(e) => setIntNumber(e.target.value)}
-                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
                           placeholder="Opcional"
                         />
                       </div>
 
                       <div className="md:col-span-2">
-                        <label className="mb-2 block text-sm font-medium text-white/90">
-                          Referencia
-                        </label>
-                        <input
-                          type="text"
+                        <FieldLabel htmlFor="reference">Referencia</FieldLabel>
+                        <DarkInput
+                          id="reference"
                           value={reference}
                           onChange={(e) => setReference(e.target.value)}
-                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
                           placeholder="Casa blanca, portón negro, frente al parque..."
                         />
                       </div>
 
                       <div className="md:col-span-2">
-                        <label className="mb-2 block text-sm font-medium text-white/90">
-                          Información adicional
-                        </label>
-                        <textarea
+                        <FieldLabel>Información adicional</FieldLabel>
+                        <DarkTextarea
                           value={furtherInformation}
                           onChange={(e) => setFurtherInformation(e.target.value)}
-                          rows={3}
-                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
                           placeholder="Indicaciones extra para la entrega"
                         />
                       </div>
@@ -884,7 +1069,7 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
                     <button
                       type="button"
                       onClick={handleQuoteShipping}
-                      disabled={quoteLoading}
+                      disabled={quoteLoading || municipalitiesLoading}
                       className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white px-5 py-3.5 font-semibold text-black transition hover:opacity-90 disabled:opacity-60"
                     >
                       {quoteLoading ? (
@@ -944,25 +1129,22 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
 
                         <div className="space-y-4">
                           <div>
-                            <label className="mb-2 block text-sm font-medium text-white/90">
+                            <FieldLabel htmlFor="cardholderName">
                               Nombre del titular
-                            </label>
-                            <input
-                              type="text"
+                            </FieldLabel>
+                            <DarkInput
+                              id="cardholderName"
                               value={cardholderName}
                               onChange={(e) =>
                                 setCardholderName(e.target.value.toUpperCase())
                               }
-                              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
                               placeholder="COMO APARECE EN LA TARJETA"
                               required
                             />
                           </div>
 
                           <div>
-                            <label className="mb-2 block text-sm font-medium text-white/90">
-                              Número de tarjeta
-                            </label>
+                            <FieldLabel>Número de tarjeta</FieldLabel>
                             <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-[17px] text-white transition focus-within:border-white/20 focus-within:bg-white/[0.07]">
                               <CardNumberElement
                                 options={baseStripeElementStyle}
@@ -978,9 +1160,7 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
 
                           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
-                              <label className="mb-2 block text-sm font-medium text-white/90">
-                                Expiración
-                              </label>
+                              <FieldLabel>Expiración</FieldLabel>
                               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-[17px] text-white transition focus-within:border-white/20 focus-within:bg-white/[0.07]">
                                 <CardExpiryElement
                                   options={baseStripeElementStyle}
@@ -994,9 +1174,7 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
                             </div>
 
                             <div>
-                              <label className="mb-2 block text-sm font-medium text-white/90">
-                                CVC
-                              </label>
+                              <FieldLabel>CVC</FieldLabel>
                               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-[17px] text-white transition focus-within:border-white/20 focus-within:bg-white/[0.07]">
                                 <CardCvcElement
                                   options={baseStripeElementStyle}
@@ -1028,7 +1206,14 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
 
             <button
               type="submit"
-              disabled={loading || quoteLoading || !stripe || !elements || !selectedShippingOption}
+              disabled={
+                loading ||
+                quoteLoading ||
+                municipalitiesLoading ||
+                !stripe ||
+                !elements ||
+                !selectedShippingOption
+              }
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-4 font-semibold text-black transition hover:opacity-90 disabled:opacity-50"
             >
               {loading ? (
