@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {
@@ -25,6 +25,7 @@ import {
   Zap,
   CheckCircle2,
   ChevronDown,
+  X,
 } from 'lucide-react'
 import { PaymentCardPreview } from '@/components/store/payment-card-preview'
 
@@ -54,6 +55,7 @@ type CardBrand =
   | 'unknown'
 
 type ShippingBucket = 'cheapest' | 'best_value' | 'express'
+type OpenSection = 'shipping' | 'payment'
 
 type ShippingOption = {
   bucket: ShippingBucket
@@ -118,7 +120,7 @@ function bucketLabel(bucket: ShippingBucket) {
 function bucketDescription(bucket: ShippingBucket) {
   if (bucket === 'cheapest') return 'La opción con menor costo total'
   if (bucket === 'best_value') return 'Buen equilibrio entre precio y velocidad'
-  return 'La mejor velocidad disponible'
+  return 'La entrega más rápida disponible'
 }
 
 function bucketShortDescription(bucket: ShippingBucket) {
@@ -140,7 +142,197 @@ function sortShippingOptions(options: ShippingOption[]) {
   )
 }
 
-type OpenSection = 'shipping' | 'payment'
+function AccordionHeader({
+  title,
+  subtitle,
+  icon,
+  isOpen,
+  onClick,
+  disabled = false,
+}: {
+  title: string
+  subtitle: string
+  icon: React.ReactNode
+  isOpen: boolean
+  onClick: () => void
+  disabled?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left transition hover:bg-white/[0.02] disabled:cursor-not-allowed disabled:opacity-70 sm:px-5"
+    >
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          {icon}
+          <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-white/90">
+            {title}
+          </h3>
+        </div>
+        <p className="mt-2 text-sm text-white/55">{subtitle}</p>
+      </div>
+
+      <ChevronDown
+        className={`h-5 w-5 shrink-0 text-white/65 transition-transform ${
+          isOpen ? 'rotate-180' : ''
+        }`}
+      />
+    </button>
+  )
+}
+
+function ShippingOptionModal({
+  open,
+  options,
+  activeBucket,
+  onChangeBucket,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean
+  options: ShippingOption[]
+  activeBucket: ShippingBucket
+  onChangeBucket: (bucket: ShippingBucket) => void
+  onClose: () => void
+  onConfirm: (option: ShippingOption) => void
+}) {
+  const orderedOptions = useMemo(() => sortShippingOptions(options), [options])
+
+  const currentOption =
+    orderedOptions.find((option) => option.bucket === activeBucket) ||
+    orderedOptions[0] ||
+    null
+
+  if (!open || !currentOption) return null
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 py-6">
+      <div
+        className="absolute inset-0 bg-black/75 backdrop-blur-[6px]"
+        onClick={onClose}
+      />
+
+      <div className="relative z-10 w-full max-w-2xl overflow-hidden rounded-[30px] border border-white/10 bg-[#0b0b0b] shadow-[0_30px_120px_rgba(0,0,0,0.55)]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06),transparent_24%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.04),transparent_24%)]" />
+
+        <div className="relative border-b border-white/10 px-5 py-5 sm:px-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-white/40">
+                Envío
+              </p>
+              <h3 className="mt-2 text-2xl font-black tracking-tight text-white">
+                Elige tu opción
+              </h3>
+              <p className="mt-2 text-sm text-white/55">
+                Selecciona la cotización que prefieras para continuar al pago.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full border border-white/10 bg-white/[0.04] p-2 text-white/70 transition hover:bg-white/[0.08] hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="relative px-5 py-5 sm:px-6 sm:py-6">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {orderedOptions.map((option) => {
+              const active = activeBucket === option.bucket
+
+              return (
+                <button
+                  key={option.rateId}
+                  type="button"
+                  onClick={() => onChangeBucket(option.bucket)}
+                  className={`rounded-[18px] border px-4 py-4 text-left transition-all ${
+                    active
+                      ? 'border-white bg-white text-black shadow-[0_16px_40px_rgba(255,255,255,0.08)]'
+                      : 'border-white/10 bg-white/[0.03] text-white hover:border-white/20 hover:bg-white/[0.05]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {bucketIcon(option.bucket)}
+                    <span className="text-sm font-semibold">
+                      {bucketLabel(option.bucket)}
+                    </span>
+                  </div>
+
+                  <p
+                    className={`mt-2 text-xs ${
+                      active ? 'text-black/65' : 'text-white/50'
+                    }`}
+                  >
+                    {bucketShortDescription(option.bucket)}
+                  </p>
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="mt-4 rounded-[24px] border border-white/10 bg-gradient-to-br from-white/[0.05] via-white/[0.02] to-transparent p-5">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.22em] text-white">
+                  {bucketIcon(currentOption.bucket)}
+                  {bucketLabel(currentOption.bucket)}
+                </div>
+
+                <h4 className="mt-4 text-xl font-black text-white">
+                  {currentOption.carrierDisplayName}
+                </h4>
+
+                <p className="mt-1 text-sm text-white/72">
+                  {currentOption.serviceName}
+                </p>
+
+                <p className="mt-4 text-sm text-white/58">
+                  {bucketDescription(currentOption.bucket)}
+                </p>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/75">
+                    {currentOption.estimatedDays
+                      ? `${currentOption.estimatedDays} día(s) estimado(s)`
+                      : 'Sin tiempo estimado'}
+                  </span>
+
+                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/75">
+                    {currentOption.pickup ? 'Con recolección' : 'Entrega estándar'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="sm:text-right">
+                <p className="text-xs uppercase tracking-[0.24em] text-white/45">
+                  Total del envío
+                </p>
+                <p className="mt-2 text-3xl font-black text-white">
+                  {money(currentOption.total)}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => onConfirm(currentOption)}
+              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3.5 font-semibold text-black transition hover:opacity-90"
+            >
+              <CheckCircle2 className="h-5 w-5" />
+              Elegir esta opción
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function CheckoutInner({ items, total }: CheckoutFormProps) {
   const stripe = useStripe()
@@ -173,6 +365,7 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
     useState<ShippingOption | null>(null)
   const [activeShippingBucket, setActiveShippingBucket] =
     useState<ShippingBucket>('cheapest')
+  const [shippingModalOpen, setShippingModalOpen] = useState(false)
 
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -186,26 +379,6 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
   const subtotalFormatted = useMemo(() => money(subtotal), [subtotal])
   const shippingFormatted = useMemo(() => money(shippingCost), [shippingCost])
   const grandTotalFormatted = useMemo(() => money(grandTotal), [grandTotal])
-
-  const orderedShippingOptions = useMemo(
-    () => sortShippingOptions(shippingOptions),
-    [shippingOptions]
-  )
-
-  const visibleShippingOption = useMemo(() => {
-    if (!orderedShippingOptions.length) return null
-    return (
-      orderedShippingOptions.find(
-        (option) => option.bucket === activeShippingBucket
-      ) || orderedShippingOptions[0]
-    )
-  }, [orderedShippingOptions, activeShippingBucket])
-
-  useEffect(() => {
-    if (selectedShippingOption) {
-      setOpenSection('payment')
-    }
-  }, [selectedShippingOption])
 
   const validateAddressForQuote = () => {
     if (!recipient.trim()) return 'Falta el nombre del destinatario'
@@ -272,9 +445,10 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
         sorted[0]
 
       if (preferred) {
-        setSelectedShippingOption(preferred)
         setActiveShippingBucket(preferred.bucket)
       }
+
+      setShippingModalOpen(true)
     } catch (err) {
       console.error('[shipping:quote]', err)
       setShippingOptions([])
@@ -285,13 +459,11 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
     }
   }
 
-  const handleSelectShippingBucket = (bucket: ShippingBucket) => {
-    setActiveShippingBucket(bucket)
-
-    const found = orderedShippingOptions.find((option) => option.bucket === bucket)
-    if (found) {
-      setSelectedShippingOption(found)
-    }
+  const handleConfirmShippingOption = (option: ShippingOption) => {
+    setSelectedShippingOption(option)
+    setActiveShippingBucket(option.bucket)
+    setShippingModalOpen(false)
+    setOpenSection('payment')
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -320,7 +492,7 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
     }
 
     if (!selectedShippingOption) {
-      setError('Primero cotiza y selecciona una opción de envío.')
+      setError('Primero cotiza y elige una opción de envío.')
       setOpenSection('shipping')
       return
     }
@@ -413,530 +585,390 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-8 xl:grid-cols-[1.05fr_1.25fr]">
-      <div className="rounded-[28px] border border-white/10 bg-card/60 p-6 backdrop-blur-xl md:p-7">
-        <h2 className="mb-5 text-xl font-bold">Resumen del pedido</h2>
+    <>
+      <ShippingOptionModal
+        open={shippingModalOpen}
+        options={shippingOptions}
+        activeBucket={activeShippingBucket}
+        onChangeBucket={setActiveShippingBucket}
+        onClose={() => setShippingModalOpen(false)}
+        onConfirm={handleConfirmShippingOption}
+      />
 
-        <div className="mb-6 space-y-4">
-          {items.map((item) => (
-            <div
-              key={item.id}
-              className="flex gap-4 rounded-2xl border border-border/60 bg-background/40 p-3"
-            >
-              <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl bg-secondary">
-                {item.product.images[0] ? (
-                  <Image
-                    src={item.product.images[0].url}
-                    alt={item.product.name}
-                    fill
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                    <ShoppingBag className="h-6 w-6" />
+      <div className="grid grid-cols-1 gap-8 xl:grid-cols-[1.05fr_1.25fr]">
+        <div className="rounded-[28px] border border-white/10 bg-card/60 p-6 backdrop-blur-xl md:p-7">
+          <h2 className="mb-5 text-xl font-bold">Resumen del pedido</h2>
+
+          <div className="mb-6 space-y-4">
+            {items.map((item) => (
+              <div
+                key={item.id}
+                className="flex gap-4 rounded-2xl border border-border/60 bg-background/40 p-3"
+              >
+                <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl bg-secondary">
+                  {item.product.images[0] ? (
+                    <Image
+                      src={item.product.images[0].url}
+                      alt={item.product.name}
+                      fill
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                      <ShoppingBag className="h-6 w-6" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{item.product.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {item.quantity} x {money(item.product.price)}
+                    {item.size ? ` · Talla ${item.size}` : ''}
+                  </p>
+                </div>
+
+                <p className="whitespace-nowrap font-medium">
+                  {money(item.quantity * item.product.price)}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-3 rounded-2xl border border-border/70 bg-background/40 p-4">
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>Subtotal</span>
+              <span>{subtotalFormatted}</span>
+            </div>
+
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>Envío</span>
+              <span>
+                {selectedShippingOption ? shippingFormatted : 'Cotiza tu envío'}
+              </span>
+            </div>
+
+            <div className="h-px bg-white/10" />
+
+            <div className="flex items-center justify-between text-lg font-bold">
+              <span>Total</span>
+              <span>{grandTotalFormatted}</span>
+            </div>
+          </div>
+
+          {selectedShippingOption && (
+            <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="mb-2 flex items-center gap-2 text-white/85">
+                <Truck className="h-4 w-4" />
+                <span className="text-sm font-semibold">Envío seleccionado</span>
+              </div>
+
+              <p className="text-sm text-white/75">
+                {selectedShippingOption.carrierDisplayName} ·{' '}
+                {selectedShippingOption.serviceName}
+              </p>
+
+              <p className="mt-1 text-xs text-white/50">
+                {bucketLabel(selectedShippingOption.bucket)}
+                {selectedShippingOption.estimatedDays
+                  ? ` · ${selectedShippingOption.estimatedDays} día(s) estimado(s)`
+                  : ''}
+              </p>
+            </div>
+          )}
+
+          <div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground">
+            <Lock className="h-4 w-4" />
+            <span>Pago protegido con Stripe</span>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.02))] p-5 backdrop-blur-xl md:p-7">
+            <div className="mb-6">
+              <p className="mb-2 text-xs uppercase tracking-[0.35em] text-white/45">
+                Checkout
+              </p>
+              <h2 className="text-2xl font-black tracking-tight text-white md:text-3xl">
+                Pago con tarjeta
+              </h2>
+              <p className="mt-2 text-sm text-white/55">
+                Dirección, envío y pago dentro de tu tienda.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.025]">
+                <AccordionHeader
+                  title="1. Datos y envío"
+                  subtitle={
+                    selectedShippingOption
+                      ? `${selectedShippingOption.carrierDisplayName} · ${selectedShippingOption.serviceName} · ${money(selectedShippingOption.total)}`
+                      : 'Completa tu dirección y cotiza el envío'
+                  }
+                  icon={<MapPin className="h-4 w-4 text-white/80" />}
+                  isOpen={openSection === 'shipping'}
+                  onClick={() =>
+                    setOpenSection(openSection === 'shipping' ? 'payment' : 'shipping')
+                  }
+                />
+
+                {openSection === 'shipping' && (
+                  <div className="border-t border-white/10 px-4 pb-4 pt-4 sm:px-5 sm:pb-5">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div className="md:col-span-2">
+                        <label className="mb-2 block text-sm font-medium text-white/90">
+                          Destinatario
+                        </label>
+                        <input
+                          type="text"
+                          value={recipient}
+                          onChange={(e) => setRecipient(e.target.value)}
+                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                          placeholder="Nombre completo de quien recibe"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-white/90">
+                          Teléfono
+                        </label>
+                        <input
+                          type="tel"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                          placeholder="+52 998..."
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-white/90">
+                          Correo electrónico
+                        </label>
+                        <input
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                          placeholder="tu@email.com"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-white/90">
+                          Código postal
+                        </label>
+                        <input
+                          type="text"
+                          value={postalCode}
+                          onChange={(e) => setPostalCode(e.target.value)}
+                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                          placeholder="77500"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-white/90">
+                          Estado
+                        </label>
+                        <input
+                          type="text"
+                          value={stateName}
+                          onChange={(e) => setStateName(e.target.value)}
+                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                          placeholder="Quintana Roo"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-white/90">
+                          Ciudad / Municipio
+                        </label>
+                        <input
+                          type="text"
+                          value={city}
+                          onChange={(e) => setCity(e.target.value)}
+                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                          placeholder="Cancún"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-white/90">
+                          Colonia
+                        </label>
+                        <input
+                          type="text"
+                          value={colony}
+                          onChange={(e) => setColony(e.target.value)}
+                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                          placeholder="Centro"
+                          required
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="mb-2 block text-sm font-medium text-white/90">
+                          Calle
+                        </label>
+                        <input
+                          type="text"
+                          value={street}
+                          onChange={(e) => setStreet(e.target.value)}
+                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                          placeholder="Av. Ejemplo"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-white/90">
+                          Número exterior
+                        </label>
+                        <input
+                          type="text"
+                          value={extNumber}
+                          onChange={(e) => setExtNumber(e.target.value)}
+                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                          placeholder="123"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-white/90">
+                          Número interior
+                        </label>
+                        <input
+                          type="text"
+                          value={intNumber}
+                          onChange={(e) => setIntNumber(e.target.value)}
+                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                          placeholder="Opcional"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="mb-2 block text-sm font-medium text-white/90">
+                          Referencia
+                        </label>
+                        <input
+                          type="text"
+                          value={reference}
+                          onChange={(e) => setReference(e.target.value)}
+                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                          placeholder="Casa blanca, portón negro, frente al parque..."
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="mb-2 block text-sm font-medium text-white/90">
+                          Información adicional
+                        </label>
+                        <textarea
+                          value={furtherInformation}
+                          onChange={(e) => setFurtherInformation(e.target.value)}
+                          rows={3}
+                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                          placeholder="Indicaciones extra para la entrega"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleQuoteShipping}
+                      disabled={quoteLoading}
+                      className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white px-5 py-3.5 font-semibold text-black transition hover:opacity-90 disabled:opacity-60"
+                    >
+                      {quoteLoading ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          Cotizando envío...
+                        </>
+                      ) : (
+                        <>
+                          <Truck className="h-5 w-5" />
+                          Cotizar envío
+                        </>
+                      )}
+                    </button>
                   </div>
                 )}
               </div>
 
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{item.product.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {item.quantity} x {money(item.product.price)}
-                  {item.size ? ` · Talla ${item.size}` : ''}
-                </p>
-              </div>
-
-              <p className="whitespace-nowrap font-medium">
-                {money(item.quantity * item.product.price)}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        <div className="space-y-3 rounded-2xl border border-border/70 bg-background/40 p-4">
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>Subtotal</span>
-            <span>{subtotalFormatted}</span>
-          </div>
-
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>Envío</span>
-            <span>
-              {selectedShippingOption ? shippingFormatted : 'Cotiza tu envío'}
-            </span>
-          </div>
-
-          <div className="h-px bg-white/10" />
-
-          <div className="flex items-center justify-between text-lg font-bold">
-            <span>Total</span>
-            <span>{grandTotalFormatted}</span>
-          </div>
-        </div>
-
-        {selectedShippingOption && (
-          <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-            <div className="mb-2 flex items-center gap-2 text-white/85">
-              <Truck className="h-4 w-4" />
-              <span className="text-sm font-semibold">Envío seleccionado</span>
-            </div>
-
-            <p className="text-sm text-white/75">
-              {selectedShippingOption.carrierDisplayName} ·{' '}
-              {selectedShippingOption.serviceName}
-            </p>
-
-            <p className="mt-1 text-xs text-white/50">
-              {bucketLabel(selectedShippingOption.bucket)}
-              {selectedShippingOption.estimatedDays
-                ? ` · ${selectedShippingOption.estimatedDays} día(s) estimado(s)`
-                : ''}
-            </p>
-          </div>
-        )}
-
-        <div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground">
-          <Lock className="h-4 w-4" />
-          <span>Pago protegido con Stripe</span>
-        </div>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.02))] p-5 backdrop-blur-xl md:p-7">
-          <div className="mb-6">
-            <p className="mb-2 text-xs uppercase tracking-[0.35em] text-white/45">
-              Checkout
-            </p>
-            <h2 className="text-2xl font-black tracking-tight text-white md:text-3xl">
-              Pago con tarjeta
-            </h2>
-            <p className="mt-2 text-sm text-white/55">
-              Dirección, envío y pago dentro de tu tienda.
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            <div className="overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.025]">
-              <button
-                type="button"
-                onClick={() =>
-                  setOpenSection(openSection === 'shipping' ? 'payment' : 'shipping')
-                }
-                className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left sm:px-5"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-white/80" />
-                    <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-white/90">
-                      1. Cotización de envío
-                    </h3>
-                  </div>
-
-                  <p className="mt-2 text-sm text-white/55">
-                    {selectedShippingOption
-                      ? `${selectedShippingOption.carrierDisplayName} · ${selectedShippingOption.serviceName} · ${money(
-                          selectedShippingOption.total
-                        )}`
-                      : 'Completa tu dirección, cotiza y elige la opción de envío'}
-                  </p>
-                </div>
-
-                <ChevronDown
-                  className={`h-5 w-5 shrink-0 text-white/65 transition-transform ${
-                    openSection === 'shipping' ? 'rotate-180' : ''
-                  }`}
+              <div className="overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.025]">
+                <AccordionHeader
+                  title="2. Pago con tarjeta"
+                  subtitle={
+                    selectedShippingOption
+                      ? `Total a pagar: ${grandTotalFormatted}`
+                      : 'Selecciona primero tu envío para continuar'
+                  }
+                  icon={<CreditCard className="h-4 w-4 text-white/80" />}
+                  isOpen={openSection === 'payment'}
+                  onClick={() => {
+                    if (!selectedShippingOption) {
+                      setOpenSection('shipping')
+                      return
+                    }
+                    setOpenSection(openSection === 'payment' ? 'shipping' : 'payment')
+                  }}
+                  disabled={false}
                 />
-              </button>
 
-              {openSection === 'shipping' && (
-                <div className="border-t border-white/10 px-4 pb-4 pt-4 sm:px-5 sm:pb-5">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div className="md:col-span-2">
-                      <label className="mb-2 block text-sm font-medium text-white/90">
-                        Destinatario
-                      </label>
-                      <input
-                        type="text"
-                        value={recipient}
-                        onChange={(e) => setRecipient(e.target.value)}
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
-                        placeholder="Nombre completo de quien recibe"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-white/90">
-                        Teléfono
-                      </label>
-                      <input
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
-                        placeholder="+52 998..."
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-white/90">
-                        Correo electrónico
-                      </label>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
-                        placeholder="tu@email.com"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-white/90">
-                        Código postal
-                      </label>
-                      <input
-                        type="text"
-                        value={postalCode}
-                        onChange={(e) => setPostalCode(e.target.value)}
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
-                        placeholder="77500"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-white/90">
-                        Estado
-                      </label>
-                      <input
-                        type="text"
-                        value={stateName}
-                        onChange={(e) => setStateName(e.target.value)}
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
-                        placeholder="Quintana Roo"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-white/90">
-                        Ciudad / Municipio
-                      </label>
-                      <input
-                        type="text"
-                        value={city}
-                        onChange={(e) => setCity(e.target.value)}
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
-                        placeholder="Cancún"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-white/90">
-                        Colonia
-                      </label>
-                      <input
-                        type="text"
-                        value={colony}
-                        onChange={(e) => setColony(e.target.value)}
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
-                        placeholder="Centro"
-                        required
-                      />
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="mb-2 block text-sm font-medium text-white/90">
-                        Calle
-                      </label>
-                      <input
-                        type="text"
-                        value={street}
-                        onChange={(e) => setStreet(e.target.value)}
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
-                        placeholder="Av. Ejemplo"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-white/90">
-                        Número exterior
-                      </label>
-                      <input
-                        type="text"
-                        value={extNumber}
-                        onChange={(e) => setExtNumber(e.target.value)}
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
-                        placeholder="123"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-white/90">
-                        Número interior
-                      </label>
-                      <input
-                        type="text"
-                        value={intNumber}
-                        onChange={(e) => setIntNumber(e.target.value)}
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
-                        placeholder="Opcional"
-                      />
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="mb-2 block text-sm font-medium text-white/90">
-                        Referencia
-                      </label>
-                      <input
-                        type="text"
-                        value={reference}
-                        onChange={(e) => setReference(e.target.value)}
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
-                        placeholder="Casa blanca, portón negro, frente al parque..."
-                      />
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="mb-2 block text-sm font-medium text-white/90">
-                        Información adicional
-                      </label>
-                      <textarea
-                        value={furtherInformation}
-                        onChange={(e) => setFurtherInformation(e.target.value)}
-                        rows={3}
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
-                        placeholder="Indicaciones extra para la entrega"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleQuoteShipping}
-                    disabled={quoteLoading}
-                    className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white px-5 py-3.5 font-semibold text-black transition hover:opacity-90 disabled:opacity-60"
-                  >
-                    {quoteLoading ? (
-                      <>
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                        Cotizando envío...
-                      </>
+                {openSection === 'payment' && (
+                  <div className="border-t border-white/10 px-4 pb-4 pt-4 sm:px-5 sm:pb-5">
+                    {!selectedShippingOption ? (
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/70">
+                        Primero cotiza y elige una opción de envío.
+                      </div>
                     ) : (
                       <>
-                        <Truck className="h-5 w-5" />
-                        Cotizar envío
-                      </>
-                    )}
-                  </button>
-
-                  {shippingOptions.length > 0 && visibleShippingOption && (
-                    <div className="mt-5 rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
-                      <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                        {orderedShippingOptions.map((option) => {
-                          const active = activeShippingBucket === option.bucket
-
-                          return (
-                            <button
-                              key={option.rateId}
-                              type="button"
-                              onClick={() => handleSelectShippingBucket(option.bucket)}
-                              className={`rounded-[18px] border px-4 py-3 text-left transition-all ${
-                                active
-                                  ? 'border-white bg-white text-black shadow-[0_12px_30px_rgba(255,255,255,0.10)]'
-                                  : 'border-white/10 bg-white/[0.03] text-white hover:border-white/20 hover:bg-white/[0.05]'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2">
-                                {bucketIcon(option.bucket)}
-                                <span className="text-sm font-semibold">
-                                  {bucketLabel(option.bucket)}
-                                </span>
-                              </div>
-
-                              <p
-                                className={`mt-1 text-xs ${
-                                  active ? 'text-black/65' : 'text-white/50'
-                                }`}
-                              >
-                                {bucketShortDescription(option.bucket)}
-                              </p>
-                            </button>
-                          )
-                        })}
-                      </div>
-
-                      <div className="rounded-[20px] border border-white/10 bg-gradient-to-br from-white/[0.05] via-white/[0.02] to-transparent p-4">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="min-w-0">
-                            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.22em] text-white">
-                              {bucketIcon(visibleShippingOption.bucket)}
-                              {bucketLabel(visibleShippingOption.bucket)}
-                            </div>
-
-                            <h4 className="mt-3 text-lg font-bold text-white">
-                              {visibleShippingOption.carrierDisplayName}
-                            </h4>
-
-                            <p className="mt-1 text-sm text-white/72">
-                              {visibleShippingOption.serviceName}
-                            </p>
-
-                            <p className="mt-3 text-sm text-white/58">
-                              {bucketDescription(visibleShippingOption.bucket)}
-                            </p>
-
-                            <div className="mt-4 flex flex-wrap gap-2">
-                              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/75">
-                                {visibleShippingOption.estimatedDays
-                                  ? `${visibleShippingOption.estimatedDays} día(s) estimado(s)`
-                                  : 'Sin tiempo estimado'}
-                              </span>
-
-                              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/75">
-                                {visibleShippingOption.pickup
-                                  ? 'Con recolección'
-                                  : 'Entrega estándar'}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="sm:text-right">
-                            <p className="text-xs uppercase tracking-[0.22em] text-white/45">
-                              Total del envío
-                            </p>
-                            <p className="mt-1 text-2xl font-black text-white">
-                              {money(visibleShippingOption.total)}
-                            </p>
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedShippingOption(visibleShippingOption)
-                            setOpenSection('payment')
-                          }}
-                          className={`mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 font-semibold transition ${
-                            selectedShippingOption?.rateId === visibleShippingOption.rateId
-                              ? 'bg-white text-black'
-                              : 'border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]'
-                          }`}
-                        >
-                          <CheckCircle2 className="h-5 w-5" />
-                          {selectedShippingOption?.rateId === visibleShippingOption.rateId
-                            ? 'Opción seleccionada'
-                            : 'Elegir esta opción'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.025]">
-              <button
-                type="button"
-                onClick={() => {
-                  if (!selectedShippingOption) {
-                    setOpenSection('shipping')
-                    return
-                  }
-                  setOpenSection(openSection === 'payment' ? 'shipping' : 'payment')
-                }}
-                className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left sm:px-5"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-white/80" />
-                    <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-white/90">
-                      2. Pago con tarjeta
-                    </h3>
-                  </div>
-
-                  <p className="mt-2 text-sm text-white/55">
-                    {selectedShippingOption
-                      ? `Total a pagar: ${grandTotalFormatted}`
-                      : 'Selecciona primero tu envío para continuar con el pago'}
-                  </p>
-                </div>
-
-                <ChevronDown
-                  className={`h-5 w-5 shrink-0 text-white/65 transition-transform ${
-                    openSection === 'payment' ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
-
-              {openSection === 'payment' && (
-                <div className="border-t border-white/10 px-4 pb-4 pt-4 sm:px-5 sm:pb-5">
-                  {!selectedShippingOption ? (
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/70">
-                      Primero elige una opción de envío para habilitar el pago.
-                    </div>
-                  ) : (
-                    <>
-                      <div className="mb-6">
-                        <PaymentCardPreview
-                          cardholderName={cardholderName}
-                          brand={brand}
-                          isCvcFocused={isCvcFocused}
-                          numberComplete={numberComplete}
-                          expiryComplete={expiryComplete}
-                          cvcComplete={cvcComplete}
-                        />
-                      </div>
-
-                      <div className="space-y-4">
-                        <div>
-                          <label className="mb-2 block text-sm font-medium text-white/90">
-                            Nombre del titular
-                          </label>
-                          <input
-                            type="text"
-                            value={cardholderName}
-                            onChange={(e) =>
-                              setCardholderName(e.target.value.toUpperCase())
-                            }
-                            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
-                            placeholder="COMO APARECE EN LA TARJETA"
-                            required
+                        <div className="mb-6">
+                          <PaymentCardPreview
+                            cardholderName={cardholderName}
+                            brand={brand}
+                            isCvcFocused={isCvcFocused}
+                            numberComplete={numberComplete}
+                            expiryComplete={expiryComplete}
+                            cvcComplete={cvcComplete}
                           />
                         </div>
 
-                        <div>
-                          <label className="mb-2 block text-sm font-medium text-white/90">
-                            Número de tarjeta
-                          </label>
-                          <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-[17px] text-white transition focus-within:border-white/20 focus-within:bg-white/[0.07]">
-                            <CardNumberElement
-                              options={baseStripeElementStyle}
-                              onChange={(event) => {
-                                setBrand((event.brand as CardBrand) || 'unknown')
-                                setNumberComplete(Boolean(event.complete))
-                                if (event.error) setError(event.error.message)
-                                else setError(null)
-                              }}
+                        <div className="space-y-4">
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-white/90">
+                              Nombre del titular
+                            </label>
+                            <input
+                              type="text"
+                              value={cardholderName}
+                              onChange={(e) =>
+                                setCardholderName(e.target.value.toUpperCase())
+                              }
+                              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                              placeholder="COMO APARECE EN LA TARJETA"
+                              required
                             />
                           </div>
-                        </div>
 
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                           <div>
                             <label className="mb-2 block text-sm font-medium text-white/90">
-                              Expiración
+                              Número de tarjeta
                             </label>
                             <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-[17px] text-white transition focus-within:border-white/20 focus-within:bg-white/[0.07]">
-                              <CardExpiryElement
+                              <CardNumberElement
                                 options={baseStripeElementStyle}
                                 onChange={(event) => {
-                                  setExpiryComplete(Boolean(event.complete))
+                                  setBrand((event.brand as CardBrand) || 'unknown')
+                                  setNumberComplete(Boolean(event.complete))
                                   if (event.error) setError(event.error.message)
                                   else setError(null)
                                 }}
@@ -944,72 +976,90 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
                             </div>
                           </div>
 
-                          <div>
-                            <label className="mb-2 block text-sm font-medium text-white/90">
-                              CVC
-                            </label>
-                            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-[17px] text-white transition focus-within:border-white/20 focus-within:bg-white/[0.07]">
-                              <CardCvcElement
-                                options={baseStripeElementStyle}
-                                onFocus={() => setIsCvcFocused(true)}
-                                onBlur={() => setIsCvcFocused(false)}
-                                onChange={(event) => {
-                                  setCvcComplete(Boolean(event.complete))
-                                  if (event.error) setError(event.error.message)
-                                  else setError(null)
-                                }}
-                              />
+                          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div>
+                              <label className="mb-2 block text-sm font-medium text-white/90">
+                                Expiración
+                              </label>
+                              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-[17px] text-white transition focus-within:border-white/20 focus-within:bg-white/[0.07]">
+                                <CardExpiryElement
+                                  options={baseStripeElementStyle}
+                                  onChange={(event) => {
+                                    setExpiryComplete(Boolean(event.complete))
+                                    if (event.error) setError(event.error.message)
+                                    else setError(null)
+                                  }}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="mb-2 block text-sm font-medium text-white/90">
+                                CVC
+                              </label>
+                              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-[17px] text-white transition focus-within:border-white/20 focus-within:bg-white/[0.07]">
+                                <CardCvcElement
+                                  options={baseStripeElementStyle}
+                                  onFocus={() => setIsCvcFocused(true)}
+                                  onBlur={() => setIsCvcFocused(false)}
+                                  onChange={(event) => {
+                                    setCvcComplete(Boolean(event.complete))
+                                    if (event.error) setError(event.error.message)
+                                    else setError(null)
+                                  }}
+                                />
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
 
-          {error && (
-            <div className="flex gap-3 rounded-2xl border border-red-500/25 bg-red-500/10 p-4">
-              <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-400" />
-              <p className="text-sm text-red-300">{error}</p>
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading || quoteLoading || !stripe || !elements || !selectedShippingOption}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-4 font-semibold text-black transition hover:opacity-90 disabled:opacity-50"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Procesando pago...
-              </>
-            ) : (
-              <>
-                <CreditCard className="h-5 w-5" />
-                Pagar {grandTotalFormatted}
-              </>
+            {error && (
+              <div className="mt-4 flex gap-3 rounded-2xl border border-red-500/25 bg-red-500/10 p-4">
+                <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-400" />
+                <p className="text-sm text-red-300">{error}</p>
+              </div>
             )}
-          </button>
 
-          <div className="flex items-center justify-center gap-2 text-xs text-white/45">
-            <Lock className="h-4 w-4" />
-            <span>Los datos sensibles de tarjeta los procesa Stripe</span>
+            <button
+              type="submit"
+              disabled={loading || quoteLoading || !stripe || !elements || !selectedShippingOption}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-4 font-semibold text-black transition hover:opacity-90 disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Procesando pago...
+                </>
+              ) : (
+                <>
+                  <CreditCard className="h-5 w-5" />
+                  Pagar {grandTotalFormatted}
+                </>
+              )}
+            </button>
+
+            <div className="mt-4 flex items-center justify-center gap-2 text-xs text-white/45">
+              <Lock className="h-4 w-4" />
+              <span>Los datos sensibles de tarjeta los procesa Stripe</span>
+            </div>
+
+            <Link
+              href="/"
+              className="mt-4 block text-center text-sm text-white/55 transition-colors hover:text-white"
+            >
+              <ArrowLeft className="mr-1 inline h-4 w-4" />
+              Seguir comprando
+            </Link>
           </div>
-
-          <Link
-            href="/"
-            className="block text-center text-sm text-white/55 transition-colors hover:text-white"
-          >
-            <ArrowLeft className="mr-1 inline h-4 w-4" />
-            Seguir comprando
-          </Link>
-        </div>
-      </form>
-    </div>
+        </form>
+      </div>
+    </>
   )
 }
 
