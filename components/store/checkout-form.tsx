@@ -28,7 +28,11 @@ import {
   X,
 } from 'lucide-react'
 import { PaymentCardPreview } from '@/components/store/payment-card-preview'
-import { MX_STATES, getStateNameByCode, type MexicoMunicipality } from '@/lib/mx-locations'
+import {
+  MX_STATES,
+  getStateNameByCode,
+  type MexicoMunicipality,
+} from '@/lib/mx-locations'
 
 interface CartItem {
   id: string
@@ -143,6 +147,24 @@ function sortShippingOptions(options: ShippingOption[]) {
   )
 }
 
+function normalizeMunicipalitiesClient(
+  municipalities: MexicoMunicipality[]
+): MexicoMunicipality[] {
+  const normalized = municipalities
+    .map((item) => ({
+      code: String(item.code ?? '').trim(),
+      name: String(item.name ?? '').trim(),
+    }))
+    .filter((item) => item.code && item.name)
+
+  return normalized
+    .filter(
+      (item, index, arr) =>
+        index === arr.findIndex((x) => x.code === item.code && x.name === item.name)
+    )
+    .sort((a, b) => a.name.localeCompare(b.name, 'es-MX'))
+}
+
 function FieldLabel({
   children,
   htmlFor,
@@ -237,14 +259,14 @@ function DarkSelect({
   children: React.ReactNode
 }) {
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       <select
         id={id}
         value={value}
         onChange={onChange}
         required={required}
         disabled={disabled}
-        className="w-full appearance-none rounded-2xl border border-white/10 bg-white/5 px-4 py-3 pr-11 text-white outline-none transition focus:border-white/20 focus:bg-white/[0.07] disabled:cursor-not-allowed disabled:opacity-60"
+        className="block w-full appearance-none truncate rounded-2xl border border-white/10 bg-white/5 px-4 py-3 pr-11 text-white outline-none transition focus:border-white/20 focus:bg-white/[0.07] disabled:cursor-not-allowed disabled:opacity-60"
       >
         {children}
       </select>
@@ -500,16 +522,19 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
     if (!stateCode) {
       setStateName('')
       setMunicipalities([])
+      setMunicipalitiesLoading(false)
       setCity('')
       return
     }
 
     const nextStateName = getStateNameByCode(stateCode)
+
     setStateName(nextStateName)
     setCity('')
     setMunicipalities([])
     setSelectedShippingOption(null)
     setShippingOptions([])
+    setError(null)
 
     let cancelled = false
 
@@ -519,7 +544,7 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
 
         const response = await fetch(`/api/mx/municipalities/${stateCode}`, {
           method: 'GET',
-          cache: 'force-cache',
+          cache: 'no-store',
         })
 
         const data = await response.json()
@@ -528,11 +553,16 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
           throw new Error(data.error || 'No se pudieron cargar los municipios')
         }
 
+        const nextMunicipalities = normalizeMunicipalitiesClient(
+          Array.isArray(data.municipalities) ? data.municipalities : []
+        )
+
         if (!cancelled) {
-          setMunicipalities(Array.isArray(data.municipalities) ? data.municipalities : [])
+          setMunicipalities(nextMunicipalities)
         }
       } catch (err) {
         console.error('[mx:municipalities]', err)
+
         if (!cancelled) {
           setMunicipalities([])
           setError(
@@ -966,15 +996,17 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
                       </div>
 
                       <div className="md:col-span-2">
-                        <FieldLabel htmlFor="city">
-                          Ciudad / Municipio
-                        </FieldLabel>
+                        <FieldLabel htmlFor="city">Ciudad / Municipio</FieldLabel>
                         <DarkSelect
                           id="city"
                           value={city}
                           onChange={(e) => setCity(e.target.value)}
                           required
-                          disabled={!stateCode || municipalitiesLoading || municipalities.length === 0}
+                          disabled={
+                            !stateCode ||
+                            municipalitiesLoading ||
+                            municipalities.length === 0
+                          }
                         >
                           <option value="" className="bg-[#0b0b0b] text-white">
                             {!stateCode

@@ -6,55 +6,103 @@ import { getStateNameByCode, isValidStateCode } from '@/lib/mx-locations'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-type RawMunicipality = {
-  cvegeo?: string
-  cve_ent?: string
-  cve_mun?: string | number
-  nomgeo?: string
-  nombre?: string
-  nom_mun?: string
+type MunicipalityItem = {
+  code: string
+  name: string
 }
 
-type IngegiPayload =
-  | RawMunicipality[]
-  | {
-      datos?: RawMunicipality[]
-      data?: RawMunicipality[]
-      results?: RawMunicipality[]
-      municipios?: RawMunicipality[]
+type PlainObject = Record<string, unknown>
+
+function isPlainObject(value: unknown): value is PlainObject {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function getValueCaseInsensitive(
+  obj: PlainObject,
+  keys: string[]
+): unknown {
+  const lowerMap = new Map<string, unknown>()
+
+  for (const [key, value] of Object.entries(obj)) {
+    lowerMap.set(key.toLowerCase(), value)
+  }
+
+  for (const key of keys) {
+    const found = lowerMap.get(key.toLowerCase())
+    if (found !== undefined && found !== null && found !== '') {
+      return found
     }
+  }
 
-function toArray(payload: IngegiPayload): RawMunicipality[] {
-  if (Array.isArray(payload)) return payload
-  if (Array.isArray(payload?.datos)) return payload.datos
-  if (Array.isArray(payload?.data)) return payload.data
-  if (Array.isArray(payload?.results)) return payload.results
-  if (Array.isArray(payload?.municipios)) return payload.municipios
-  return []
+  return undefined
 }
 
-function normalizeMunicipalities(payload: IngegiPayload) {
-  const candidates = toArray(payload)
+function extractMunicipalityFromObject(obj: PlainObject): MunicipalityItem | null {
+  const source = isPlainObject(obj.properties) ? obj.properties : obj
 
-  const normalized = candidates
-    .map((item) => {
-      const code =
-        String(
-          item.cve_mun ??
-            (item.cvegeo && String(item.cvegeo).length >= 5
-              ? String(item.cvegeo).slice(2)
-              : '')
-        ).trim()
+  const rawCode =
+    getValueCaseInsensitive(source, [
+      'cve_mun',
+      'cve_mpio',
+      'cve_municipio',
+      'clave',
+      'id',
+    ]) ??
+    (() => {
+      const cvegeo = getValueCaseInsensitive(source, ['cvegeo', 'cve_geo'])
+      if (typeof cvegeo === 'string' && cvegeo.length >= 5) {
+        return cvegeo.slice(2, 5)
+      }
+      return undefined
+    })()
 
-      const name = String(
-        item.nomgeo ?? item.nom_mun ?? item.nombre ?? ''
-      ).trim()
+  const rawName = getValueCaseInsensitive(source, [
+    'nomgeo',
+    'nom_mun',
+    'nom_mpio',
+    'nom_municipio',
+    'nombre',
+    'name',
+  ])
 
-      return { code, name }
-    })
-    .filter((item) => item.code && item.name)
+  const code = String(rawCode ?? '').trim()
+  const name = String(rawName ?? '').trim()
 
-  const deduped = normalized.filter(
+  if (!code || !name) return null
+
+  return { code, name }
+}
+
+function collectMunicipalities(node: unknown, acc: MunicipalityItem[] = []) {
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      collectMunicipalities(item, acc)
+    }
+    return acc
+  }
+
+  if (!isPlainObject(node)) {
+    return acc
+  }
+
+  const extracted = extractMunicipalityFromObject(node)
+  if (extracted) {
+    acc.push(extracted)
+  }
+
+  for (const value of Object.values(node)) {
+    if (Array.isArray(value) || isPlainObject(value)) {
+      collectMunicipalities(value, acc)
+    }
+  }
+
+  return acc
+}
+
+function normalizeMunicipalities(payload: unknown) {
+  const collected = collectMunicipalities(payload)
+
+  const deduped = collected.filter(
     (item, index, arr) =>
       index === arr.findIndex((x) => x.code === item.code && x.name === item.name)
   )
@@ -92,7 +140,7 @@ export async function GET(
 
     if (!response.ok) {
       const text = await response.text().catch(() => '')
-      console.error('[mx:municipalities] inegi bad response', {
+      console.error('[mx:municipalities] INEGI bad response', {
         stateCode: normalizedCode,
         status: response.status,
         body: text,
@@ -104,14 +152,16 @@ export async function GET(
       )
     }
 
-    const payload = (await response.json()) as IngegiPayload
+    const payload = await response.json()
     const municipalities = normalizeMunicipalities(payload)
 
-    console.log('[mx:municipalities] success', {
-      stateCode: normalizedCode,
-      stateName,
-      count: municipalities.length,
-    })
+    if (!municipalities.length) {
+      console.error('[mx:municipalities] empty result', {
+        stateCode: normalizedCode,
+        stateName,
+        payload,
+      })
+    }
 
     return NextResponse.json(
       {
