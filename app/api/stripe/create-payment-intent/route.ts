@@ -354,27 +354,28 @@ export async function POST(request: Request) {
           total,
 
           shippingAddress: shippingAddressText,
-          shippingRecipient: recipient,
+          shippingFullName: recipient,
           shippingPhone: normalizePhone(phone),
           shippingEmail: email,
           shippingPostalCode: postalCode,
           shippingState: state,
           shippingCity: city,
-          shippingColony: colony,
+          shippingNeighborhood: colony,
           shippingStreet: street,
           shippingExtNumber: extNumber || null,
           shippingIntNumber: intNumber || null,
           shippingReference: reference || null,
+          shippingCountry: 'MX',
 
           shippingCarrier:
             selectedShippingOption.carrierDisplayName || selectedShippingOption.carrier,
           shippingService: selectedShippingOption.serviceName,
           shippingRateId: selectedShippingOption.rateId,
-          shippingDays:
+          shippingBucket: selectedShippingOption.bucket || null,
+          shippingEstimatedDays:
             typeof selectedShippingOption.estimatedDays === 'number'
               ? selectedShippingOption.estimatedDays
               : null,
-          shippingCurrency: selectedShippingOption.currency || 'MXN',
           shippingQuoteJson: selectedShippingOption,
         },
       })
@@ -433,27 +434,28 @@ export async function POST(request: Request) {
             status: 'PENDING',
 
             shippingAddress: shippingAddressText,
-            shippingRecipient: recipient,
+            shippingFullName: recipient,
             shippingPhone: normalizePhone(phone),
             shippingEmail: email,
             shippingPostalCode: postalCode,
             shippingState: state,
             shippingCity: city,
-            shippingColony: colony,
+            shippingNeighborhood: colony,
             shippingStreet: street,
             shippingExtNumber: extNumber || null,
             shippingIntNumber: intNumber || null,
             shippingReference: reference || null,
+            shippingCountry: 'MX',
 
             shippingCarrier:
               selectedShippingOption.carrierDisplayName || selectedShippingOption.carrier,
             shippingService: selectedShippingOption.serviceName,
             shippingRateId: selectedShippingOption.rateId,
-            shippingDays:
+            shippingBucket: selectedShippingOption.bucket || null,
+            shippingEstimatedDays:
               typeof selectedShippingOption.estimatedDays === 'number'
                 ? selectedShippingOption.estimatedDays
                 : null,
-            shippingCurrency: selectedShippingOption.currency || 'MXN',
             shippingQuoteJson: selectedShippingOption,
 
             items: {
