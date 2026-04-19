@@ -3,15 +3,16 @@
 import { NextResponse } from 'next/server'
 import { getStateNameByCode, isValidStateCode } from '@/lib/mx-locations'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 type RawMunicipality = {
   cvegeo?: string
   cve_ent?: string
-  cve_mun?: string
-  cve_agem?: string
+  cve_mun?: string | number
   nomgeo?: string
   nombre?: string
   nom_mun?: string
-  nom_agem?: string
 }
 
 type IngegiPayload =
@@ -23,40 +24,42 @@ type IngegiPayload =
       municipios?: RawMunicipality[]
     }
 
-function normalizeMunicipalities(payload: IngegiPayload) {
-  const candidates: RawMunicipality[] = Array.isArray(payload)
-    ? payload
-    : Array.isArray(payload?.datos)
-      ? payload.datos
-      : Array.isArray(payload?.data)
-        ? payload.data
-        : Array.isArray(payload?.results)
-          ? payload.results
-          : Array.isArray(payload?.municipios)
-            ? payload.municipios
-            : []
+function toArray(payload: IngegiPayload): RawMunicipality[] {
+  if (Array.isArray(payload)) return payload
+  if (Array.isArray(payload?.datos)) return payload.datos
+  if (Array.isArray(payload?.data)) return payload.data
+  if (Array.isArray(payload?.results)) return payload.results
+  if (Array.isArray(payload?.municipios)) return payload.municipios
+  return []
+}
 
-  return candidates
+function normalizeMunicipalities(payload: IngegiPayload) {
+  const candidates = toArray(payload)
+
+  const normalized = candidates
     .map((item) => {
       const code =
         String(
-          item.cve_mun ||
-            item.cve_agem ||
-            (item.cvegeo && item.cvegeo.length >= 5 ? item.cvegeo.slice(2) : '')
+          item.cve_mun ??
+            (item.cvegeo && String(item.cvegeo).length >= 5
+              ? String(item.cvegeo).slice(2)
+              : '')
         ).trim()
 
       const name = String(
-        item.nomgeo ||
-          item.nom_mun ||
-          item.nom_agem ||
-          item.nombre ||
-          ''
+        item.nomgeo ?? item.nom_mun ?? item.nombre ?? ''
       ).trim()
 
       return { code, name }
     })
     .filter((item) => item.code && item.name)
-    .sort((a, b) => a.name.localeCompare(b.name, 'es-MX'))
+
+  const deduped = normalized.filter(
+    (item, index, arr) =>
+      index === arr.findIndex((x) => x.code === item.code && x.name === item.name)
+  )
+
+  return deduped.sort((a, b) => a.name.localeCompare(b.name, 'es-MX'))
 }
 
 export async function GET(
@@ -65,7 +68,7 @@ export async function GET(
 ) {
   try {
     const { stateCode } = await context.params
-    const normalizedCode = String(stateCode || '').trim()
+    const normalizedCode = String(stateCode || '').trim().padStart(2, '0')
 
     if (!isValidStateCode(normalizedCode)) {
       return NextResponse.json(
@@ -83,12 +86,18 @@ export async function GET(
         headers: {
           Accept: 'application/json',
         },
-        cache: 'force-cache',
-        next: { revalidate: 60 * 60 * 24 * 7 },
+        cache: 'no-store',
       }
     )
 
     if (!response.ok) {
+      const text = await response.text().catch(() => '')
+      console.error('[mx:municipalities] inegi bad response', {
+        stateCode: normalizedCode,
+        status: response.status,
+        body: text,
+      })
+
       return NextResponse.json(
         { error: 'No se pudieron cargar los municipios' },
         { status: 502 }
@@ -98,6 +107,12 @@ export async function GET(
     const payload = (await response.json()) as IngegiPayload
     const municipalities = normalizeMunicipalities(payload)
 
+    console.log('[mx:municipalities] success', {
+      stateCode: normalizedCode,
+      stateName,
+      count: municipalities.length,
+    })
+
     return NextResponse.json(
       {
         stateCode: normalizedCode,
@@ -106,12 +121,12 @@ export async function GET(
       },
       {
         headers: {
-          'Cache-Control': 's-maxage=86400, stale-while-revalidate=604800',
+          'Cache-Control': 'no-store, max-age=0',
         },
       }
     )
   } catch (error) {
-    console.error('[mx:municipalities]', error)
+    console.error('[mx:municipalities] error', error)
 
     return NextResponse.json(
       { error: 'Error al cargar municipios' },
