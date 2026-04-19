@@ -7,34 +7,53 @@ type RawMunicipality = {
   cvegeo?: string
   cve_ent?: string
   cve_mun?: string
+  cve_agem?: string
   nomgeo?: string
   nombre?: string
   nom_mun?: string
+  nom_agem?: string
 }
 
-function normalizeMunicipalities(payload: unknown) {
+type IngegiPayload =
+  | RawMunicipality[]
+  | {
+      datos?: RawMunicipality[]
+      data?: RawMunicipality[]
+      results?: RawMunicipality[]
+      municipios?: RawMunicipality[]
+    }
+
+function normalizeMunicipalities(payload: IngegiPayload) {
   const candidates: RawMunicipality[] = Array.isArray(payload)
     ? payload
-    : Array.isArray((payload as { data?: unknown[] })?.data)
-      ? ((payload as { data?: RawMunicipality[] }).data ?? [])
-      : Array.isArray((payload as { results?: unknown[] })?.results)
-        ? ((payload as { results?: RawMunicipality[] }).results ?? [])
-        : Array.isArray((payload as { municipios?: unknown[] })?.municipios)
-          ? ((payload as { municipios?: RawMunicipality[] }).municipios ?? [])
-          : []
+    : Array.isArray(payload?.datos)
+      ? payload.datos
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload?.results)
+          ? payload.results
+          : Array.isArray(payload?.municipios)
+            ? payload.municipios
+            : []
 
   return candidates
     .map((item) => {
       const code =
-        item.cve_mun ||
-        (item.cvegeo && item.cvegeo.length >= 5 ? item.cvegeo.slice(2) : '')
+        String(
+          item.cve_mun ||
+            item.cve_agem ||
+            (item.cvegeo && item.cvegeo.length >= 5 ? item.cvegeo.slice(2) : '')
+        ).trim()
 
-      const name = item.nomgeo || item.nombre || item.nom_mun || ''
+      const name = String(
+        item.nomgeo ||
+          item.nom_mun ||
+          item.nom_agem ||
+          item.nombre ||
+          ''
+      ).trim()
 
-      return {
-        code: String(code || '').trim(),
-        name: String(name || '').trim(),
-      }
+      return { code, name }
     })
     .filter((item) => item.code && item.name)
     .sort((a, b) => a.name.localeCompare(b.name, 'es-MX'))
@@ -76,23 +95,8 @@ export async function GET(
       )
     }
 
-    const payload = await response.json()
+    const payload = (await response.json()) as IngegiPayload
     const municipalities = normalizeMunicipalities(payload)
-
-    if (!municipalities.length) {
-      return NextResponse.json(
-        {
-          stateCode: normalizedCode,
-          stateName,
-          municipalities: [],
-        },
-        {
-          headers: {
-            'Cache-Control': 's-maxage=86400, stale-while-revalidate=604800',
-          },
-        }
-      )
-    }
 
     return NextResponse.json(
       {
