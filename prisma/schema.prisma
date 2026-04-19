@@ -32,22 +32,27 @@ model Category {
 }
 
 model Product {
-  id          String        @id @default(cuid())
-  name        String
-  description String?
-  price       Float
-  stock       Int           @default(0)
-  status      ProductStatus @default(ACTIVE)
-  dropName    String?
-  releaseAt   DateTime?
-  categoryId  String
-  category    Category      @relation(fields: [categoryId], references: [id])
-  images      ProductImage[]
-  sizes       ProductSize[]
-  cartItems   CartItem[]
-  orderItems  OrderItem[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id              String        @id @default(cuid())
+  name            String
+  description     String?
+  price           Float
+  stock           Int           @default(0)
+  weightKg        Float         @default(0.35)
+  lengthCm        Int           @default(30)
+  widthCm         Int           @default(24)
+  heightCm        Int           @default(4)
+  shipsSeparately Boolean       @default(false)
+  status          ProductStatus @default(ACTIVE)
+  dropName        String?
+  releaseAt       DateTime?
+  categoryId      String
+  category        Category      @relation(fields: [categoryId], references: [id])
+  images          ProductImage[]
+  sizes           ProductSize[]
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 }
 
 model ProductSize {
@@ -103,17 +108,50 @@ model CartItem {
 }
 
 model Order {
-  id                  String      @id @default(cuid())
-  userId              String
-  user                User        @relation(fields: [userId], references: [id])
-  total               Float
-  status              OrderStatus @default(PENDING)
-  shippingAddress     String?
-  inventoryDiscounted Boolean     @default(false)
-  items               OrderItem[]
-  payment             Payment?
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
+  id                    String      @id @default(cuid())
+  userId                String
+  user                  User        @relation(fields: [userId], references: [id])
+
+  subtotal              Float       @default(0)
+  shippingCost          Float       @default(0)
+  total                 Float
+  currency              String      @default("MXN")
+
+  status                OrderStatus @default(PENDING)
+
+  shippingAddress       String?
+  shippingFullName      String?
+  shippingPhone         String?
+  shippingEmail         String?
+  shippingPostalCode    String?
+  shippingState         String?
+  shippingCity          String?
+  shippingNeighborhood  String?
+  shippingStreet        String?
+  shippingExtNumber     String?
+  shippingIntNumber     String?
+  shippingReference     String?
+  shippingCountry       String      @default("MX")
+
+  shippingCarrier       String?
+  shippingService       String?
+  shippingRateId        String?
+  shippingQuotationId   String?
+  shippingBucket        String?
+  shippingEstimatedDays Int?
+  shippingTrackingNumber String?
+  shippingTrackingUrl   String?
+  shippingLabelUrl      String?
+  shippingQuoteJson     Json?
+  skydropxShipmentId    String?
+
+  inventoryDiscounted   Boolean     @default(false)
+
+  items                 OrderItem[]
+  payment               Payment?
+
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
 }
 
 enum OrderStatus {
@@ -141,12 +179,14 @@ model Payment {
   id                String        @id @default(cuid())
   orderId           String        @unique
   order             Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  provider          String        @default("mercadopago")
+  provider          String        @default("stripe")
   status            PaymentStatus @default(PENDING)
   transactionId     String?
   preferenceId      String?
+  paymentIntentId   String?       @unique
   paymentMethodId   String?
   payerEmail        String?
+  receiptEmail      String?
   externalReference String?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt

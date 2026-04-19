@@ -19,12 +19,17 @@ import {
   Loader2,
   Lock,
   CreditCard,
+  MapPin,
+  Truck,
+  Sparkles,
+  CheckCircle2,
 } from 'lucide-react'
 import { PaymentCardPreview } from '@/components/store/payment-card-preview'
 
 interface CartItem {
   id: string
   quantity: number
+  size?: string | null
   product: {
     id: string
     name: string
@@ -45,6 +50,33 @@ type CardBrand =
   | 'discover'
   | 'unionpay'
   | 'unknown'
+
+type ShippingBucket = 'cheapest' | 'best_value' | 'express'
+
+type ShippingOption = {
+  bucket: ShippingBucket
+  rateId: string
+  carrier: string
+  carrierDisplayName: string
+  serviceName: string
+  serviceCode?: string
+  currency: string
+  amount: number
+  total: number
+  estimatedDays: number | null
+  pickup: boolean
+}
+
+type QuoteResponse = {
+  success: boolean
+  quotationId: string
+  options: ShippingOption[]
+  recommended?: {
+    cheapest?: ShippingOption | null
+    bestValue?: ShippingOption | null
+    express?: ShippingOption | null
+  }
+}
 
 const stripePromise =
   typeof window !== 'undefined' &&
@@ -71,29 +103,149 @@ const baseStripeElementStyle = {
   },
 }
 
+function money(amount: number) {
+  return `${amount.toFixed(2)} MXN`
+}
+
+function bucketLabel(bucket: ShippingBucket) {
+  if (bucket === 'cheapest') return 'Más barato'
+  if (bucket === 'best_value') return 'Mejor balance'
+  return 'Express'
+}
+
+function bucketDescription(bucket: ShippingBucket) {
+  if (bucket === 'cheapest') return 'La opción con menor costo total'
+  if (bucket === 'best_value') return 'Buen equilibrio entre precio y velocidad'
+  return 'La entrega más rápida disponible'
+}
+
+function bucketIcon(bucket: ShippingBucket) {
+  if (bucket === 'cheapest') return <Truck className="h-4 w-4" />
+  if (bucket === 'best_value') return <Sparkles className="h-4 w-4" />
+  return <Truck className="h-4 w-4" />
+}
+
 function CheckoutInner({ items, total }: CheckoutFormProps) {
   const stripe = useStripe()
   const elements = useElements()
 
-  const [shippingAddress, setShippingAddress] = useState('')
-  const [phoneNumber, setPhoneNumber] = useState('')
+  const [recipient, setRecipient] = useState('')
+  const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [cardholderName, setCardholderName] = useState('')
+
+  const [postalCode, setPostalCode] = useState('')
+  const [stateName, setStateName] = useState('')
+  const [city, setCity] = useState('')
+  const [colony, setColony] = useState('')
+  const [street, setStreet] = useState('')
+  const [extNumber, setExtNumber] = useState('')
+  const [intNumber, setIntNumber] = useState('')
+  const [reference, setReference] = useState('')
+  const [furtherInformation, setFurtherInformation] = useState('')
+
   const [brand, setBrand] = useState<CardBrand>('unknown')
   const [isCvcFocused, setIsCvcFocused] = useState(false)
   const [numberComplete, setNumberComplete] = useState(false)
   const [expiryComplete, setExpiryComplete] = useState(false)
   const [cvcComplete, setCvcComplete] = useState(false)
+
+  const [quoteLoading, setQuoteLoading] = useState(false)
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([])
+  const [selectedShippingOption, setSelectedShippingOption] =
+    useState<ShippingOption | null>(null)
+
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const totalFormatted = useMemo(() => `${total.toFixed(2)} MXN`, [total])
+  const subtotal = useMemo(() => total, [total])
+  const shippingCost = selectedShippingOption?.total ?? 0
+  const grandTotal = subtotal + shippingCost
+
+  const subtotalFormatted = useMemo(() => money(subtotal), [subtotal])
+  const shippingFormatted = useMemo(() => money(shippingCost), [shippingCost])
+  const grandTotalFormatted = useMemo(() => money(grandTotal), [grandTotal])
+
+  const validateAddressForQuote = () => {
+    if (!recipient.trim()) return 'Falta el nombre del destinatario'
+    if (!phone.trim()) return 'Falta el teléfono'
+    if (!email.trim()) return 'Falta el correo electrónico'
+    if (!postalCode.trim()) return 'Falta el código postal'
+    if (!stateName.trim()) return 'Falta el estado'
+    if (!city.trim()) return 'Falta la ciudad'
+    if (!colony.trim()) return 'Falta la colonia'
+    if (!street.trim()) return 'Falta la calle'
+    return null
+  }
+
+  const handleQuoteShipping = async () => {
+    const validationError = validateAddressForQuote()
+
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
+    setError(null)
+    setQuoteLoading(true)
+
+    try {
+      const response = await fetch('/api/shipping/quote', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recipient,
+          phone,
+          email,
+          postalCode,
+          state: stateName,
+          city,
+          colony,
+          street,
+          extNumber,
+          intNumber,
+          reference,
+          furtherInformation,
+        }),
+      })
+
+      const data = (await response.json()) as QuoteResponse & { error?: string }
+
+      if (!response.ok) {
+        throw new Error(data.error || 'No se pudo cotizar el envío')
+      }
+
+      if (!data.options?.length) {
+        throw new Error('No se encontraron opciones de envío para esa dirección')
+      }
+
+      setShippingOptions(data.options)
+
+      const preferred =
+        data.recommended?.cheapest ||
+        data.recommended?.bestValue ||
+        data.recommended?.express ||
+        data.options[0]
+
+      setSelectedShippingOption(preferred ?? null)
+    } catch (err) {
+      console.error('[shipping:quote]', err)
+      setShippingOptions([])
+      setSelectedShippingOption(null)
+      setError(err instanceof Error ? err.message : 'Error al cotizar el envío')
+    } finally {
+      setQuoteLoading(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!stripe || !elements) {
-      setError('Stripe aun no esta listo. Recarga la pagina.')
+      setError('Stripe aún no está listo. Recarga la página.')
       return
     }
 
@@ -104,8 +256,18 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
       return
     }
 
-    if (!shippingAddress || !phoneNumber || !email || !cardholderName) {
-      setError('Completa todos los campos requeridos.')
+    if (!recipient || !phone || !email || !cardholderName) {
+      setError('Completa tus datos personales.')
+      return
+    }
+
+    if (!postalCode || !stateName || !city || !colony || !street) {
+      setError('Completa toda la dirección de envío.')
+      return
+    }
+
+    if (!selectedShippingOption) {
+      setError('Primero cotiza y selecciona una opción de envío.')
       return
     }
 
@@ -119,10 +281,21 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          shippingAddress,
-          phoneNumber,
+          paymentIntentId,
+          recipient,
+          phone,
           email,
           cardholderName,
+          postalCode,
+          state: stateName,
+          city,
+          colony,
+          street,
+          extNumber,
+          intNumber,
+          reference,
+          furtherInformation,
+          selectedShippingOption,
         }),
       })
 
@@ -132,15 +305,24 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
         throw new Error(data.error || 'No se pudo iniciar el pago')
       }
 
+      if (data.paymentIntentId) {
+        setPaymentIntentId(data.paymentIntentId)
+      }
+
       const result = await stripe.confirmCardPayment(data.clientSecret, {
         payment_method: {
           card: cardNumberElement,
           billing_details: {
             name: cardholderName,
             email,
-            phone: phoneNumber,
+            phone,
             address: {
-              line1: shippingAddress,
+              line1: `${street} ${extNumber}`.trim(),
+              line2: intNumber ? `Int ${intNumber}` : undefined,
+              city,
+              state: stateName,
+              postal_code: postalCode,
+              country: 'MX',
             },
           },
         },
@@ -153,7 +335,7 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
       }
 
       if (!result.paymentIntent) {
-        throw new Error('Stripe no devolvio el PaymentIntent')
+        throw new Error('Stripe no devolvió el PaymentIntent')
       }
 
       if (result.paymentIntent.status === 'succeeded') {
@@ -177,17 +359,17 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-[1.05fr_1.25fr] gap-8">
-      <div className="rounded-[28px] border border-white/10 bg-card/60 backdrop-blur-xl p-6 md:p-7">
-        <h2 className="text-xl font-bold mb-5">Resumen del pedido</h2>
+    <div className="grid grid-cols-1 gap-8 xl:grid-cols-[1.05fr_1.25fr]">
+      <div className="rounded-[28px] border border-white/10 bg-card/60 p-6 backdrop-blur-xl md:p-7">
+        <h2 className="mb-5 text-xl font-bold">Resumen del pedido</h2>
 
-        <div className="space-y-4 mb-6">
+        <div className="mb-6 space-y-4">
           {items.map((item) => (
             <div
               key={item.id}
               className="flex gap-4 rounded-2xl border border-border/60 bg-background/40 p-3"
             >
-              <div className="relative w-16 h-16 bg-secondary rounded-xl overflow-hidden flex-shrink-0">
+              <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl bg-secondary">
                 {item.product.images[0] ? (
                   <Image
                     src={item.product.images[0].url}
@@ -196,186 +378,441 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
                     className="object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                    <ShoppingBag className="w-6 h-6" />
+                  <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                    <ShoppingBag className="h-6 w-6" />
                   </div>
                 )}
               </div>
 
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{item.product.name}</p>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{item.product.name}</p>
                 <p className="text-sm text-muted-foreground">
-                  {item.quantity} x ${item.product.price.toFixed(2)} MXN
+                  {item.quantity} x {money(item.product.price)}
+                  {item.size ? ` · Talla ${item.size}` : ''}
                 </p>
               </div>
 
-              <p className="font-medium whitespace-nowrap">
-                ${(item.quantity * item.product.price).toFixed(2)} MXN
+              <p className="whitespace-nowrap font-medium">
+                {money(item.quantity * item.product.price)}
               </p>
             </div>
           ))}
         </div>
 
-        <div className="rounded-2xl border border-border/70 bg-background/40 p-4">
+        <div className="space-y-3 rounded-2xl border border-border/70 bg-background/40 p-4">
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>Subtotal</span>
+            <span>{subtotalFormatted}</span>
+          </div>
+
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>Envío</span>
+            <span>
+              {selectedShippingOption ? shippingFormatted : 'Cotiza tu envío'}
+            </span>
+          </div>
+
+          <div className="h-px bg-white/10" />
+
           <div className="flex items-center justify-between text-lg font-bold">
             <span>Total</span>
-            <span>{totalFormatted}</span>
+            <span>{grandTotalFormatted}</span>
           </div>
         </div>
 
+        {selectedShippingOption && (
+          <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="mb-2 flex items-center gap-2 text-white/85">
+              <Truck className="h-4 w-4" />
+              <span className="text-sm font-semibold">Envío seleccionado</span>
+            </div>
+
+            <p className="text-sm text-white/75">
+              {selectedShippingOption.carrierDisplayName} ·{' '}
+              {selectedShippingOption.serviceName}
+            </p>
+
+            <p className="mt-1 text-xs text-white/50">
+              {bucketLabel(selectedShippingOption.bucket)}
+              {selectedShippingOption.estimatedDays
+                ? ` · ${selectedShippingOption.estimatedDays} día(s) estimado(s)`
+                : ''}
+            </p>
+          </div>
+        )}
+
         <div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground">
-          <Lock className="w-4 h-4" />
+          <Lock className="h-4 w-4" />
           <span>Pago protegido con Stripe</span>
         </div>
       </div>
 
-      <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.02))] backdrop-blur-xl p-5 md:p-7">
+      <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.02))] p-5 backdrop-blur-xl md:p-7">
         <div className="mb-6">
-          <p className="text-xs uppercase tracking-[0.35em] text-white/45 mb-2">
+          <p className="mb-2 text-xs uppercase tracking-[0.35em] text-white/45">
             Checkout
           </p>
-          <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white">
+          <h2 className="text-2xl font-black tracking-tight text-white md:text-3xl">
             Pago con tarjeta
           </h2>
           <p className="mt-2 text-sm text-white/55">
-            Debito o credito, dentro de tu tienda.
+            Dirección, envío y pago dentro de tu tienda.
           </p>
         </div>
 
-        <div className="mb-6">
-          <PaymentCardPreview
-            cardholderName={cardholderName}
-            brand={brand}
-            isCvcFocused={isCvcFocused}
-            numberComplete={numberComplete}
-            expiryComplete={expiryComplete}
-            cvcComplete={cvcComplete}
-          />
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <label className="mb-2 block text-sm font-medium text-white/90">
-                Direccion de envio
-              </label>
-              <textarea
-                value={shippingAddress}
-                onChange={(e) => setShippingAddress(e.target.value)}
-                rows={4}
-                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
-                placeholder="Calle, numero, colonia, ciudad, codigo postal..."
-                required
-              />
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="rounded-[24px] border border-white/10 bg-white/[0.025] p-4 sm:p-5">
+            <div className="mb-4 flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-white/80" />
+              <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-white/90">
+                Datos de envío
+              </h3>
             </div>
 
-            <div>
-              <label className="mb-2 block text-sm font-medium text-white/90">
-                Telefono
-              </label>
-              <input
-                type="tel"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
-                placeholder="+52 123 456 7890"
-                required
-              />
-            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium text-white/90">
+                  Destinatario
+                </label>
+                <input
+                  type="text"
+                  value={recipient}
+                  onChange={(e) => setRecipient(e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                  placeholder="Nombre completo de quien recibe"
+                  required
+                />
+              </div>
 
-            <div>
-              <label className="mb-2 block text-sm font-medium text-white/90">
-                Correo electronico
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
-                placeholder="tu@email.com"
-                required
-              />
-            </div>
-          </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-white/90">
+                  Teléfono
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                  placeholder="+52 998..."
+                  required
+                />
+              </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-medium text-white/90">
-              Nombre del titular
-            </label>
-            <input
-              type="text"
-              value={cardholderName}
-              onChange={(e) => setCardholderName(e.target.value.toUpperCase())}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
-              placeholder="COMO APARECE EN LA TARJETA"
-              required
-            />
-          </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-white/90">
+                  Correo electrónico
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                  placeholder="tu@email.com"
+                  required
+                />
+              </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-medium text-white/90">
-              Numero de tarjeta
-            </label>
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-[17px] text-white transition focus-within:border-white/20 focus-within:bg-white/[0.07]">
-              <CardNumberElement
-                options={baseStripeElementStyle}
-                onChange={(event) => {
-                  setBrand((event.brand as CardBrand) || 'unknown')
-                  setNumberComplete(Boolean(event.complete))
-                  if (event.error) setError(event.error.message)
-                  else setError(null)
-                }}
-              />
-            </div>
-          </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-white/90">
+                  Código postal
+                </label>
+                <input
+                  type="text"
+                  value={postalCode}
+                  onChange={(e) => setPostalCode(e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                  placeholder="77500"
+                  required
+                />
+              </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-white/90">
-                Expiracion
-              </label>
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-[17px] text-white transition focus-within:border-white/20 focus-within:bg-white/[0.07]">
-                <CardExpiryElement
-                  options={baseStripeElementStyle}
-                  onChange={(event) => {
-                    setExpiryComplete(Boolean(event.complete))
-                    if (event.error) setError(event.error.message)
-                    else setError(null)
-                  }}
+              <div>
+                <label className="mb-2 block text-sm font-medium text-white/90">
+                  Estado
+                </label>
+                <input
+                  type="text"
+                  value={stateName}
+                  onChange={(e) => setStateName(e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                  placeholder="Quintana Roo"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-white/90">
+                  Ciudad / Municipio
+                </label>
+                <input
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                  placeholder="Cancún"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-white/90">
+                  Colonia
+                </label>
+                <input
+                  type="text"
+                  value={colony}
+                  onChange={(e) => setColony(e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                  placeholder="Centro"
+                  required
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium text-white/90">
+                  Calle
+                </label>
+                <input
+                  type="text"
+                  value={street}
+                  onChange={(e) => setStreet(e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                  placeholder="Av. Ejemplo"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-white/90">
+                  Número exterior
+                </label>
+                <input
+                  type="text"
+                  value={extNumber}
+                  onChange={(e) => setExtNumber(e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                  placeholder="123"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-white/90">
+                  Número interior
+                </label>
+                <input
+                  type="text"
+                  value={intNumber}
+                  onChange={(e) => setIntNumber(e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                  placeholder="Opcional"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium text-white/90">
+                  Referencia
+                </label>
+                <input
+                  type="text"
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                  placeholder="Casa blanca, portón negro, frente al parque..."
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium text-white/90">
+                  Información adicional
+                </label>
+                <textarea
+                  value={furtherInformation}
+                  onChange={(e) => setFurtherInformation(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                  placeholder="Indicaciones extra para la entrega"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="mb-2 block text-sm font-medium text-white/90">
-                CVC
-              </label>
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-[17px] text-white transition focus-within:border-white/20 focus-within:bg-white/[0.07]">
-                <CardCvcElement
-                  options={baseStripeElementStyle}
-                  onFocus={() => setIsCvcFocused(true)}
-                  onBlur={() => setIsCvcFocused(false)}
-                  onChange={(event) => {
-                    setCvcComplete(Boolean(event.complete))
-                    if (event.error) setError(event.error.message)
-                    else setError(null)
-                  }}
+            <button
+              type="button"
+              onClick={handleQuoteShipping}
+              disabled={quoteLoading}
+              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white px-5 py-3.5 font-semibold text-black transition hover:opacity-90 disabled:opacity-60"
+            >
+              {quoteLoading ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Cotizando envío...
+                </>
+              ) : (
+                <>
+                  <Truck className="h-5 w-5" />
+                  Cotizar envío
+                </>
+              )}
+            </button>
+          </div>
+
+          {shippingOptions.length > 0 && (
+            <div className="rounded-[24px] border border-white/10 bg-white/[0.025] p-4 sm:p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <Truck className="h-4 w-4 text-white/80" />
+                <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-white/90">
+                  Opciones de envío
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3">
+                {shippingOptions.map((option) => {
+                  const selected = selectedShippingOption?.rateId === option.rateId
+
+                  return (
+                    <button
+                      key={option.rateId}
+                      type="button"
+                      onClick={() => setSelectedShippingOption(option)}
+                      className={`rounded-[20px] border p-4 text-left transition ${
+                        selected
+                          ? 'border-white bg-white text-black shadow-[0_16px_40px_rgba(255,255,255,0.08)]'
+                          : 'border-white/10 bg-white/[0.04] text-white hover:border-white/20 hover:bg-white/[0.06]'
+                      }`}
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-current/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] opacity-90">
+                            {bucketIcon(option.bucket)}
+                            {bucketLabel(option.bucket)}
+                          </div>
+
+                          <p className="text-sm font-semibold">
+                            {option.carrierDisplayName} · {option.serviceName}
+                          </p>
+
+                          <p className={`mt-1 text-xs ${selected ? 'text-black/65' : 'text-white/55'}`}>
+                            {bucketDescription(option.bucket)}
+                          </p>
+
+                          <p className={`mt-1 text-xs ${selected ? 'text-black/65' : 'text-white/55'}`}>
+                            {option.estimatedDays
+                              ? `${option.estimatedDays} día(s) estimado(s)`
+                              : 'Tiempo estimado no disponible'}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <p className="text-lg font-black">{money(option.total)}</p>
+                          {selected && <CheckCircle2 className="h-5 w-5" />}
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-[24px] border border-white/10 bg-white/[0.025] p-4 sm:p-5">
+            <div className="mb-4 flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-white/80" />
+              <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-white/90">
+                Pago
+              </h3>
+            </div>
+
+            <div className="mb-6">
+              <PaymentCardPreview
+                cardholderName={cardholderName}
+                brand={brand}
+                isCvcFocused={isCvcFocused}
+                numberComplete={numberComplete}
+                expiryComplete={expiryComplete}
+                cvcComplete={cvcComplete}
+              />
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-white/90">
+                  Nombre del titular
+                </label>
+                <input
+                  type="text"
+                  value={cardholderName}
+                  onChange={(e) => setCardholderName(e.target.value.toUpperCase())}
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/[0.07]"
+                  placeholder="COMO APARECE EN LA TARJETA"
+                  required
                 />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-white/90">
+                  Número de tarjeta
+                </label>
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-[17px] text-white transition focus-within:border-white/20 focus-within:bg-white/[0.07]">
+                  <CardNumberElement
+                    options={baseStripeElementStyle}
+                    onChange={(event) => {
+                      setBrand((event.brand as CardBrand) || 'unknown')
+                      setNumberComplete(Boolean(event.complete))
+                      if (event.error) setError(event.error.message)
+                      else setError(null)
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-white/90">
+                    Expiración
+                  </label>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-[17px] text-white transition focus-within:border-white/20 focus-within:bg-white/[0.07]">
+                    <CardExpiryElement
+                      options={baseStripeElementStyle}
+                      onChange={(event) => {
+                        setExpiryComplete(Boolean(event.complete))
+                        if (event.error) setError(event.error.message)
+                        else setError(null)
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-white/90">
+                    CVC
+                  </label>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-[17px] text-white transition focus-within:border-white/20 focus-within:bg-white/[0.07]">
+                    <CardCvcElement
+                      options={baseStripeElementStyle}
+                      onFocus={() => setIsCvcFocused(true)}
+                      onBlur={() => setIsCvcFocused(false)}
+                      onChange={(event) => {
+                        setCvcComplete(Boolean(event.complete))
+                        if (event.error) setError(event.error.message)
+                        else setError(null)
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
           {error && (
-            <div className="rounded-2xl border border-red-500/25 bg-red-500/10 p-4 flex gap-3">
-              <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+            <div className="flex gap-3 rounded-2xl border border-red-500/25 bg-red-500/10 p-4">
+              <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-400" />
               <p className="text-sm text-red-300">{error}</p>
             </div>
           )}
 
           <button
             type="submit"
-            disabled={loading || !stripe || !elements}
-            className="w-full rounded-2xl bg-white px-5 py-4 font-semibold text-black transition hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+            disabled={loading || quoteLoading || !stripe || !elements}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-4 font-semibold text-black transition hover:opacity-90 disabled:opacity-50"
           >
             {loading ? (
               <>
@@ -385,21 +822,21 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
             ) : (
               <>
                 <CreditCard className="h-5 w-5" />
-                Pagar {totalFormatted}
+                Pagar {grandTotalFormatted}
               </>
             )}
           </button>
 
           <div className="flex items-center justify-center gap-2 text-xs text-white/45">
-            <Lock className="w-4 h-4" />
+            <Lock className="h-4 w-4" />
             <span>Los datos sensibles de tarjeta los procesa Stripe</span>
           </div>
 
           <Link
             href="/"
-            className="block text-center text-sm text-white/55 hover:text-white transition-colors"
+            className="block text-center text-sm text-white/55 transition-colors hover:text-white"
           >
-            <ArrowLeft className="w-4 h-4 inline mr-1" />
+            <ArrowLeft className="mr-1 inline h-4 w-4" />
             Seguir comprando
           </Link>
         </form>
