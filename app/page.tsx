@@ -1,14 +1,16 @@
 import Link from 'next/link'
 import Image from 'next/image'
+import { ArrowRight } from 'lucide-react'
 import { Header } from '@/components/store/header'
 import { Footer } from '@/components/store/footer'
 import { ProductCard } from '@/components/store/product-card'
 import { CommunitySection } from '@/components/store/community-section'
+import {
+  HomeHeroSwitcher,
+} from '@/components/store/home-hero-switcher'
 import { type HomeHeroSlide } from '@/components/store/home-hero-carousel'
-import { HomeHeroSwitcher } from '@/components/store/home-hero-switcher'
 import { prisma } from '@/lib/prisma'
 import { releaseExpiredDrops } from '@/lib/release-drops'
-import { ArrowRight } from 'lucide-react'
 import { isWithinDropWindow } from '@/lib/drop'
 
 export const dynamic = 'force-dynamic'
@@ -23,6 +25,7 @@ async function getFeaturedProducts() {
     include: {
       images: { orderBy: { order: 'asc' } },
       category: true,
+      sizes: true,
     },
     take: 8,
     orderBy: { createdAt: 'desc' },
@@ -47,6 +50,9 @@ async function getCategories() {
   return prisma.category.findMany({
     include: {
       _count: { select: { products: true } },
+    },
+    orderBy: {
+      name: 'asc',
     },
   })
 }
@@ -136,7 +142,7 @@ function buildHeroSlides(
       subtitle:
         product.description?.trim() ||
         `Descubre ${product.name} y explora la nueva propuesta de ${product.category.name}.`,
-      priceText: `$${product.price.toFixed(2)} MXN`,
+      priceText: `$${Number(product.price).toFixed(2)} MXN`,
       image: product.images[0]?.url || null,
       ctaHref: `/productos/${product.id}`,
       ctaLabel: 'Ver producto',
@@ -177,35 +183,32 @@ export default async function HomePage() {
       <Header />
 
       <main
-        className="flex-1"
+        className="relative flex-1 overflow-hidden"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 4rem)' }}
       >
-        <section
-          className="relative overflow-hidden px-3 pb-8 pt-2 sm:px-4 sm:pb-10 sm:pt-3 md:px-6 lg:px-8"
-          style={{ minHeight: 'calc(100svh - 4rem)' }}
-        >
+        <section className="relative isolate overflow-hidden px-3 pb-10 pt-3 sm:px-4 sm:pb-12 sm:pt-4 md:px-6 lg:px-8">
           <div className="absolute inset-0 bg-gradient-to-b from-card via-background to-background" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.06),transparent_32%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.04),transparent_26%)]" />
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:42px_42px] opacity-20" />
-          <div className="absolute left-1/2 top-0 h-[360px] w-[360px] -translate-x-1/2 rounded-full bg-white/[0.04] blur-3xl" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.06),transparent_26%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.04),transparent_22%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.03),transparent_22%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[size:42px_42px] opacity-20" />
+          <div className="absolute left-1/2 top-0 h-[280px] w-[280px] -translate-x-1/2 rounded-full bg-white/[0.05] blur-3xl sm:h-[340px] sm:w-[340px]" />
 
-          <div className="relative mx-auto flex h-full w-full max-w-[1700px] flex-col">
-            <div className="flex flex-col items-center pt-2 sm:pt-3 md:pt-4">
+          <div className="relative mx-auto flex w-full max-w-[1700px] flex-col">
+            <div className="flex flex-col items-center justify-center pt-2 sm:pt-3 md:pt-4">
               <Image
                 src="/logo.png"
                 alt="MBE Logo"
                 width={340}
                 height={160}
-                className="mx-auto mt-2 h-14 w-auto object-contain sm:h-16 md:h-20"
+                className="mx-auto mt-1 h-14 w-auto object-contain sm:h-16 md:h-[4.6rem]"
                 priority
               />
 
-              <p className="mb-5 mt-3 max-w-3xl text-center text-base text-muted-foreground sm:mb-6 sm:text-lg md:text-2xl">
+              <p className="mt-3 max-w-3xl text-center text-base text-muted-foreground sm:text-lg md:mt-4 md:text-[2rem] md:leading-tight">
                 “MBE es para todos, pero no para cualquiera.”
               </p>
             </div>
 
-            <div className="flex flex-1">
+            <div className="mt-6 flex min-h-[520px] w-full items-center sm:mt-8 md:min-h-[580px] lg:min-h-[640px]">
               <HomeHeroSwitcher
                 nextDrop={nextDrop}
                 recentDrop={recentDrop}

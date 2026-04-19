@@ -47,6 +47,7 @@ interface DropCountdownProps {
   ctaHref?: string
   ctaLabel?: string
   onExpire?: () => void
+  variant?: 'hero' | 'product'
 }
 
 export function DropCountdown({
@@ -56,6 +57,7 @@ export function DropCountdown({
   ctaHref,
   ctaLabel = 'Ver drop',
   onExpire,
+  variant = 'hero',
 }: DropCountdownProps) {
   const parsedTargetDate = useMemo(() => new Date(targetDate), [targetDate])
   const [mounted, setMounted] = useState(false)
@@ -94,17 +96,75 @@ export function DropCountdown({
     { label: 'SEGUNDOS', value: mounted ? timeLeft.seconds : '--' },
   ]
 
+  if (variant === 'product') {
+    return (
+      <div className="relative w-full overflow-hidden rounded-[1.6rem] border border-white/10 bg-white/[0.03] px-4 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.20)] sm:px-5 sm:py-5">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.05),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.03),transparent_24%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:32px_32px] opacity-20" />
+
+        <div className="relative z-10">
+          <div className="mb-4 flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/45 opacity-75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
+            </span>
+
+            <span className="text-[11px] font-semibold uppercase tracking-[0.26em] text-white/70">
+              Próximo drop
+            </span>
+          </div>
+
+          <h2 className="text-3xl font-black leading-[0.95] tracking-tight text-white sm:text-4xl">
+            {title}
+          </h2>
+
+          {subtitle && (
+            <p className="mt-3 text-sm leading-6 text-white/65 sm:text-[15px]">
+              {subtitle}
+            </p>
+          )}
+
+          <div className="mt-5 grid grid-cols-4 gap-2 sm:gap-3">
+            {items.map((item) => (
+              <div
+                key={item.label}
+                className="min-w-0 rounded-[1.2rem] border border-white/10 bg-black/25 px-2 py-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md sm:px-3 sm:py-5"
+              >
+                <div className="truncate text-4xl font-black leading-none text-white tabular-nums sm:text-5xl">
+                  {item.value}
+                </div>
+                <div className="mt-3 text-[10px] uppercase tracking-[0.26em] text-white/45 sm:text-[11px]">
+                  {item.label}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {ctaHref && (
+            <div className="mt-5">
+              <Link
+                href={ctaHref}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black transition-all hover:translate-y-[-1px] hover:opacity-95"
+              >
+                {ctaLabel}
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="mx-auto flex w-full max-w-[1400px] flex-col items-center justify-center">
-      <div className="relative w-full overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-[#050505] via-[#0b0b0b] to-[#040404] px-4 py-8 shadow-[0_30px_100px_rgba(0,0,0,0.42)] sm:px-6 sm:py-10 lg:rounded-[2.5rem] lg:px-8 lg:py-12">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.04),transparent_22%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.03),transparent_24%),radial-gradient(circle_at_center,rgba(255,255,255,0.02),transparent_45%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.025)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.025)_1px,transparent_1px)] bg-[size:44px_44px] opacity-15" />
-        <div className="absolute -left-16 top-1/2 h-52 w-52 -translate-y-1/2 rounded-full bg-white/[0.03] blur-3xl" />
-        <div className="absolute -right-16 top-0 h-52 w-52 rounded-full bg-white/[0.03] blur-3xl" />
+    <div className="mx-auto w-full max-w-[1400px]">
+      <div className="relative px-2 py-4 sm:px-4 sm:py-6">
+        <div className="absolute inset-x-[8%] top-0 h-44 rounded-full bg-white/[0.04] blur-3xl" />
+        <div className="absolute inset-x-[18%] bottom-0 h-32 rounded-full bg-white/[0.03] blur-3xl" />
 
         <div className="relative z-10">
           <div className="mb-6 flex flex-wrap items-center justify-center gap-3 sm:mb-8">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-white shadow-[0_12px_34px_rgba(255,255,255,0.05)] sm:text-xs">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-white shadow-[0_12px_34px_rgba(255,255,255,0.06)] sm:text-xs">
               <span className="relative flex h-2.5 w-2.5 shrink-0">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/40 opacity-75" />
                 <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
@@ -130,6 +190,7 @@ export function DropCountdown({
                 className="group relative overflow-hidden rounded-[1.7rem] border border-white/10 bg-white/[0.035] px-4 py-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md transition-transform duration-300 hover:-translate-y-1 sm:px-5 sm:py-8 lg:px-6 lg:py-10"
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-white/[0.04] via-transparent to-white/[0.02] opacity-90" />
+
                 <div className="relative z-10">
                   <div className="text-5xl font-black leading-none text-white tabular-nums sm:text-6xl md:text-7xl lg:text-[5.2rem]">
                     {item.value}

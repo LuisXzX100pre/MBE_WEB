@@ -6,7 +6,10 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { DropCountdown } from '@/components/store/drop-countdown'
-import { HomeHeroCarousel, type HomeHeroSlide } from '@/components/store/home-hero-carousel'
+import {
+  HomeHeroCarousel,
+  type HomeHeroSlide,
+} from '@/components/store/home-hero-carousel'
 import { playUnlockedDropSound } from '@/lib/audio-unlock'
 
 type DropProduct = {
@@ -38,15 +41,16 @@ function LiveDropFixedHero({ product }: { product: DropProduct }) {
   return (
     <div className="w-full">
       <div className="relative overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-br from-[#090909] via-[#101010] to-[#050505] shadow-[0_25px_90px_rgba(0,0,0,0.42)] sm:rounded-[32px] lg:rounded-[38px]">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(239,68,68,0.16),transparent_22%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.05),transparent_24%),radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_40%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_24%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.05),transparent_24%),radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_40%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.025)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.025)_1px,transparent_1px)] bg-[size:44px_44px] opacity-20" />
-        <div className="absolute inset-y-0 left-0 w-[42%] bg-gradient-to-r from-red-600/10 via-red-500/5 to-transparent blur-3xl" />
+        <div className="absolute left-8 top-8 h-36 w-36 rounded-full bg-white/[0.04] blur-3xl" />
+        <div className="absolute right-0 top-1/3 h-40 w-40 rounded-full bg-white/[0.03] blur-3xl" />
 
         <div className="relative grid min-h-[420px] items-center gap-8 px-4 py-6 sm:min-h-[500px] sm:px-6 md:min-h-[560px] md:px-8 lg:grid-cols-[0.95fr_1.05fr] lg:px-10 xl:min-h-[560px] xl:px-12">
           <div className="order-2 flex flex-col justify-center lg:order-1">
             <div className="mb-4 flex flex-wrap items-center gap-3">
-              <span className="inline-flex items-center rounded-full border border-red-500/25 bg-red-600 px-4 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-white shadow-[0_12px_34px_rgba(220,38,38,0.35)] sm:text-xs">
-                Nuevo Drop
+              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.08] px-4 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-white shadow-[0_12px_34px_rgba(255,255,255,0.06)] sm:text-xs">
+                Drop estrenado
               </span>
 
               {product.dropName && (
@@ -74,14 +78,15 @@ function LiveDropFixedHero({ product }: { product: DropProduct }) {
               </Link>
 
               <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/65">
-                MBE Release
+                Disponible ahora
               </span>
             </div>
           </div>
 
           <div className="order-1 flex items-center justify-center lg:order-2">
             <div className="relative h-[260px] w-full overflow-hidden rounded-[22px] border border-white/10 bg-black/30 shadow-[0_20px_80px_rgba(0,0,0,0.35)] sm:h-[320px] sm:rounded-[28px] md:h-[380px] lg:h-[450px]">
-              <div className="absolute inset-0 z-10 bg-gradient-to-br from-red-500/10 via-transparent to-transparent" />
+              <div className="absolute inset-0 z-10 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent" />
+
               {product.images[0]?.url ? (
                 <>
                   <Image
@@ -132,15 +137,15 @@ function DropReleaseOverlay({
       <div className="absolute inset-0 bg-black/75 backdrop-blur-[8px]" />
 
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute left-1/2 top-[-10%] h-[170%] w-[2px] -translate-x-1/2 bg-gradient-to-b from-transparent via-red-400/80 to-transparent opacity-80 animate-pulse" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(239,68,68,0.18),transparent_36%)]" />
+        <div className="absolute left-1/2 top-[-10%] h-[170%] w-[2px] -translate-x-1/2 bg-gradient-to-b from-transparent via-white/70 to-transparent opacity-80 animate-pulse" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.14),transparent_36%)]" />
       </div>
 
       <div className="relative px-6 text-center">
-        <div className="mx-auto flex h-[220px] w-[220px] items-center justify-center rounded-full border border-red-400/20 bg-red-500/10 shadow-[0_0_120px_rgba(239,68,68,0.22)] sm:h-[300px] sm:w-[300px]">
-          <div className="absolute inset-0 rounded-full border border-red-300/20 animate-ping" />
-          <div className="absolute inset-[-20px] rounded-full border border-red-200/10 animate-pulse" />
-          <div className="absolute inset-[-42px] rounded-full border border-red-100/5 animate-pulse" />
+        <div className="mx-auto flex h-[220px] w-[220px] items-center justify-center rounded-full border border-white/15 bg-white/5 shadow-[0_0_120px_rgba(255,255,255,0.08)] sm:h-[300px] sm:w-[300px]">
+          <div className="absolute inset-0 rounded-full border border-white/20 animate-ping" />
+          <div className="absolute inset-[-20px] rounded-full border border-white/10 animate-pulse" />
+          <div className="absolute inset-[-42px] rounded-full border border-white/5 animate-pulse" />
 
           <div>
             <p className="text-[11px] uppercase tracking-[0.38em] text-white/70 sm:text-xs">
@@ -157,7 +162,7 @@ function DropReleaseOverlay({
         </h4>
 
         <p className="mt-3 text-sm uppercase tracking-[0.34em] text-white/55 sm:text-base">
-          MBE NEW DROP
+          MBE DROP LIVE
         </p>
       </div>
     </div>
@@ -236,6 +241,7 @@ export function HomeHeroSwitcher({ nextDrop, recentDrop, heroSlides }: Props) {
               ctaHref={`/productos/${nextDrop.id}`}
               ctaLabel="Ver drop"
               onExpire={handleCountdownExpire}
+              variant="hero"
             />
           </div>
         </div>

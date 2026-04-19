@@ -166,6 +166,8 @@ export function ProductDetail({ product, relatedProducts }: ProductDetailProps) 
     setSelectedImage((prev) => (prev - 1 + product.images.length) % product.images.length)
   }
 
+  const maxQuantity = hasSizes ? selectedSizeStock : product.stock
+
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       <Link
@@ -216,7 +218,7 @@ export function ProductDetail({ product, relatedProducts }: ProductDetailProps) 
                 </span>
 
                 {product.dropName && (
-                  <span className="rounded-full border border-red-500/30 bg-red-600 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.28em] text-white shadow-[0_10px_30px_rgba(220,38,38,0.35)]">
+                  <span className="rounded-full border border-white/10 bg-white/[0.08] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.28em] text-white shadow-[0_10px_30px_rgba(255,255,255,0.06)]">
                     {product.dropName}
                   </span>
                 )}
@@ -301,13 +303,13 @@ export function ProductDetail({ product, relatedProducts }: ProductDetailProps) 
                 </span>
 
                 {product.dropName && (
-                  <span className="rounded-full border border-red-500/25 bg-red-600 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-white shadow-[0_10px_30px_rgba(220,38,38,0.30)]">
-                    Nuevo Drop
+                  <span className="rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-white shadow-[0_10px_30px_rgba(255,255,255,0.06)]">
+                    {product.dropName}
                   </span>
                 )}
 
                 {dropState.locked && (
-                  <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-300">
+                  <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/75">
                     Próximamente
                   </span>
                 )}
@@ -344,17 +346,17 @@ export function ProductDetail({ product, relatedProducts }: ProductDetailProps) 
               )}
 
               {dropState.locked && product.releaseAt && (
-                <div className="overflow-hidden rounded-[1.6rem] border border-red-500/20 bg-gradient-to-br from-red-500/12 via-red-500/5 to-transparent">
-                  <div className="border-b border-red-500/15 px-4 py-4 sm:px-5">
-                    <div className="flex items-center gap-2 text-red-300">
+                <div className="overflow-hidden rounded-[1.6rem] border border-white/10 bg-gradient-to-br from-white/[0.05] via-white/[0.02] to-transparent">
+                  <div className="border-b border-white/10 px-4 py-4 sm:px-5">
+                    <div className="flex items-center gap-2 text-white/75">
                       <Lock className="h-4 w-4" />
                       <span className="text-sm font-semibold uppercase tracking-[0.18em]">
                         Drop bloqueado
                       </span>
                     </div>
 
-                    <p className="mt-2 text-sm leading-6 text-red-100/80">
-                      Este producto se habilita cuando termine el contador.
+                    <p className="mt-2 text-sm leading-6 text-white/60">
+                      Puedes revisar imágenes, tallas y detalles, pero la compra se habilita cuando termine el contador.
                     </p>
                   </div>
 
@@ -364,9 +366,10 @@ export function ProductDetail({ product, relatedProducts }: ProductDetailProps) 
                       title={product.dropName || product.name}
                       subtitle={
                         releaseLabel
-                          ? `Disponible el ${releaseLabel}. Puedes revisar tallas y detalles, pero aún no comprar.`
+                          ? `Disponible el ${releaseLabel}.`
                           : 'Este producto aún no está disponible para compra.'
                       }
+                      variant="product"
                     />
                   </div>
                 </div>
@@ -461,8 +464,8 @@ export function ProductDetail({ product, relatedProducts }: ProductDetailProps) 
                     </span>
 
                     <button
-                      onClick={() => setQuantity(Math.min(selectedSizeStock, quantity + 1))}
-                      disabled={dropState.locked || isSoldOut || quantity >= selectedSizeStock}
+                      onClick={() => setQuantity(Math.min(maxQuantity, quantity + 1))}
+                      disabled={dropState.locked || isSoldOut || quantity >= maxQuantity}
                       className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
                       aria-label="Aumentar cantidad"
                     >

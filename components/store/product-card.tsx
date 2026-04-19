@@ -119,13 +119,13 @@ export function ProductCard({ product }: ProductCardProps) {
 
           <div className="absolute left-3 top-3 z-20 flex max-w-[80%] flex-col gap-2">
             {product.dropName && (
-              <span className="w-fit rounded-full border border-red-500/25 bg-red-600 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.24em] text-white shadow-[0_10px_30px_rgba(220,38,38,0.30)]">
+              <span className="w-fit rounded-full border border-white/10 bg-black/55 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.24em] text-white shadow-[0_10px_30px_rgba(0,0,0,0.24)]">
                 {product.dropName}
               </span>
             )}
 
             {showLockedState && (
-              <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-400 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-black shadow-[0_10px_30px_rgba(251,191,36,0.20)]">
+              <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-white/10 bg-white/90 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-black shadow-[0_10px_30px_rgba(255,255,255,0.10)]">
                 <Lock className="h-3 w-3" />
                 Próximo drop
               </span>
@@ -191,7 +191,7 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
 
           {showLockedState && (
-            <p className="text-xs font-medium text-amber-400">
+            <p className="text-xs font-medium text-white/65">
               Visible, pero aún no disponible para comprar
             </p>
           )}

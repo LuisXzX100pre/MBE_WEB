@@ -79,7 +79,7 @@ function CompactCountdown({ targetDate }: { targetDate: string }) {
   }, [parsedTargetDate])
 
   const items = [
-    { label: 'Dias', value: mounted ? timeLeft.days : '--' },
+    { label: 'Días', value: mounted ? timeLeft.days : '--' },
     { label: 'Horas', value: mounted ? timeLeft.hours : '--' },
     { label: 'Minutos', value: mounted ? timeLeft.minutes : '--' },
     { label: 'Segundos', value: mounted ? timeLeft.seconds : '--' },
@@ -87,37 +87,33 @@ function CompactCountdown({ targetDate }: { targetDate: string }) {
 
   if (mounted && timeLeft.expired) {
     return (
-      <div className="rounded-[22px] border border-white/10 bg-black/55 p-5 text-center shadow-[0_20px_80px_rgba(0,0,0,0.35)] sm:rounded-[28px] sm:p-6">
+      <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5 text-center shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
         <p className="text-base font-semibold text-white sm:text-lg">
-          El drop ya está disponible.
+          Este drop ya está disponible.
         </p>
       </div>
     )
   }
 
   return (
-    <div className="rounded-[22px] border border-white/10 bg-black/50 p-4 shadow-[0_20px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:rounded-[28px] sm:p-6">
-      <div className="mb-4 flex items-center justify-center gap-3">
-        <span className="relative flex h-3 w-3 shrink-0">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70 opacity-75" />
-          <span className="relative inline-flex h-3 w-3 rounded-full bg-white" />
+    <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-3 shadow-[0_18px_50px_rgba(0,0,0,0.24)] backdrop-blur-md sm:p-4">
+      <div className="mb-3 flex items-center gap-2 text-white/72">
+        <Clock3 className="h-4 w-4" />
+        <span className="text-[11px] font-semibold uppercase tracking-[0.24em]">
+          Cuenta regresiva
         </span>
-
-        <p className="text-[10px] font-semibold uppercase tracking-[0.34em] text-white/70 sm:text-xs">
-          Próximo drop
-        </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+      <div className="grid grid-cols-4 gap-2 sm:gap-3">
         {items.map((item) => (
           <div
             key={item.label}
-            className="rounded-[18px] border border-white/10 bg-black/50 px-3 py-4 text-center sm:rounded-[22px] sm:px-4 sm:py-5"
+            className="rounded-[1rem] border border-white/10 bg-black/20 px-2 py-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:px-3 sm:py-5"
           >
-            <div className="text-3xl font-black leading-none text-white tabular-nums sm:text-5xl">
+            <div className="text-3xl font-black leading-none text-white tabular-nums sm:text-4xl">
               {item.value}
             </div>
-            <div className="mt-2 text-[10px] uppercase tracking-[0.22em] text-white/45 sm:text-xs sm:tracking-[0.26em]">
+            <div className="mt-2 text-[9px] uppercase tracking-[0.24em] text-white/45 sm:text-[10px]">
               {item.label}
             </div>
           </div>
@@ -127,179 +123,175 @@ function CompactCountdown({ targetDate }: { targetDate: string }) {
   )
 }
 
-const themeClasses = [
-  'from-[#0f0f10] via-[#171717] to-[#0a0a0a]',
-  'from-[#121826] via-[#111111] to-[#0a0a0a]',
-  'from-[#1a1200] via-[#151515] to-[#090909]',
-  'from-[#140f1e] via-[#151515] to-[#090909]',
-]
-
 export function HomeHeroCarousel({ slides }: { slides: HomeHeroSlide[] }) {
+  const safeSlides = slides.length
+    ? slides
+    : [
+        {
+          id: 'fallback',
+          type: 'promo' as const,
+          eyebrow: 'MBE',
+          title: 'Nueva colección',
+          subtitle: 'Descubre las piezas más recientes de la tienda.',
+          ctaHref: '/productos',
+          ctaLabel: 'Explorar ahora',
+          image: null,
+        },
+      ]
+
   const [activeIndex, setActiveIndex] = useState(0)
+  const [isPaused, setIsPaused] = useState(false)
+
+  const activeSlide = safeSlides[activeIndex]
+  const hasMultiple = safeSlides.length > 1
 
   useEffect(() => {
-    if (slides.length <= 1) return
+    if (!hasMultiple || isPaused) return
 
     const interval = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % slides.length)
-    }, 30000)
+      setActiveIndex((prev) => (prev + 1) % safeSlides.length)
+    }, 5500)
 
     return () => clearInterval(interval)
-  }, [slides.length])
+  }, [hasMultiple, isPaused, safeSlides.length])
 
-  if (slides.length === 0) return null
-
-  const activeSlide = slides[activeIndex]
-  const currentTheme = themeClasses[activeIndex % themeClasses.length]
-
-  const goPrev = () => {
-    setActiveIndex((prev) => (prev - 1 + slides.length) % slides.length)
+  const goToPrev = () => {
+    setActiveIndex((prev) => (prev - 1 + safeSlides.length) % safeSlides.length)
   }
 
-  const goNext = () => {
-    setActiveIndex((prev) => (prev + 1) % slides.length)
+  const goToNext = () => {
+    setActiveIndex((prev) => (prev + 1) % safeSlides.length)
   }
 
   return (
-    <div className="w-full">
-      <div
-        className={`relative overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-br ${currentTheme} shadow-[0_25px_90px_rgba(0,0,0,0.35)] sm:rounded-[32px] lg:rounded-[38px]`}
-      >
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.09),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.05),transparent_24%)]" />
+    <div
+      className="w-full"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
+      <div className="relative overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-br from-[#080808] via-[#101010] to-[#050505] shadow-[0_25px_90px_rgba(0,0,0,0.42)] sm:rounded-[32px] lg:rounded-[38px]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.07),transparent_24%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.05),transparent_24%),radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_42%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.022)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.022)_1px,transparent_1px)] bg-[size:44px_44px] opacity-20" />
+        <div className="absolute left-10 top-10 h-36 w-36 rounded-full bg-white/[0.04] blur-3xl" />
+        <div className="absolute right-0 top-1/3 h-40 w-40 rounded-full bg-white/[0.03] blur-3xl" />
 
-        <div className="relative grid min-h-[420px] w-full items-center gap-8 px-4 py-5 sm:min-h-[500px] sm:px-6 sm:py-6 md:min-h-[560px] md:px-8 md:py-8 lg:min-h-[520px] lg:grid-cols-[1.02fr_0.98fr] lg:px-10 xl:min-h-[560px] xl:px-12">
-          <div className="flex flex-col justify-center">
-            <p className="mb-4 inline-flex w-fit rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.22em] text-white/70 sm:px-4 sm:text-xs sm:tracking-[0.28em]">
-              {activeSlide.eyebrow}
-            </p>
+        <div className="relative grid min-h-[470px] items-center gap-8 px-4 py-6 sm:min-h-[530px] sm:px-6 md:min-h-[590px] md:px-8 lg:grid-cols-[0.92fr_1.08fr] lg:px-10 xl:min-h-[600px] xl:px-12">
+          <div className="order-2 flex flex-col justify-center lg:order-1">
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.07] px-4 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-white shadow-[0_12px_34px_rgba(255,255,255,0.06)] sm:text-xs">
+                {activeSlide.eyebrow}
+              </span>
+
+              {activeSlide.type === 'drop' && (
+                <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/75 sm:text-xs">
+                  Próximo lanzamiento
+                </span>
+              )}
+
+              {activeSlide.priceText && activeSlide.type !== 'drop' && (
+                <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/75 sm:text-xs">
+                  {activeSlide.priceText}
+                </span>
+              )}
+            </div>
 
             <h2 className="max-w-3xl text-3xl font-black leading-[0.95] tracking-tight text-white sm:text-4xl md:text-5xl lg:text-[3.4rem]">
               {activeSlide.title}
             </h2>
 
-            <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/65 sm:text-base md:text-lg">
+            <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/68 sm:text-base md:text-lg">
               {activeSlide.subtitle}
             </p>
 
-            {activeSlide.priceText && (
-              <p className="mt-5 text-2xl font-black text-white sm:text-3xl md:text-4xl">
-                {activeSlide.priceText}
-              </p>
-            )}
-
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
                 href={activeSlide.ctaHref}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black transition-opacity hover:opacity-90 sm:px-6"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black transition-all hover:translate-y-[-1px] hover:opacity-95 sm:px-6"
               >
                 {activeSlide.ctaLabel}
                 <ArrowRight className="h-4 w-4" />
               </Link>
 
-              <Link
-                href="/productos"
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm font-medium text-white/80 transition-colors hover:bg-white/10 sm:px-6"
-              >
-                Ver todos los productos
-              </Link>
-            </div>
-          </div>
+              {hasMultiple && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={goToPrev}
+                    aria-label="Slide anterior"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-white transition-all hover:bg-white/[0.09]"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
 
-          <div className="flex items-center justify-center">
-            {activeSlide.type === 'drop' && activeSlide.targetDate ? (
-              <div className="w-full max-w-2xl">
+                  <button
+                    onClick={goToNext}
+                    aria-label="Siguiente slide"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-white transition-all hover:bg-white/[0.09]"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {activeSlide.type === 'drop' && activeSlide.targetDate && (
+              <div className="mt-7 max-w-2xl">
                 <CompactCountdown targetDate={activeSlide.targetDate} />
               </div>
-            ) : activeSlide.image ? (
-              <div className="relative h-[240px] w-full overflow-hidden rounded-[22px] border border-white/10 bg-black/30 shadow-[0_20px_80px_rgba(0,0,0,0.35)] sm:h-[320px] sm:rounded-[28px] md:h-[360px] lg:h-[390px] xl:h-[430px]">
-                <Image
-                  src={activeSlide.image}
-                  alt={activeSlide.title}
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                  className="object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-              </div>
-            ) : (
-              <div className="grid w-full grid-cols-2 gap-3 sm:gap-4">
-                <div className="rounded-[20px] border border-white/10 bg-black/35 p-4 sm:rounded-[26px] sm:p-6">
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-white/45 sm:text-sm sm:tracking-[0.28em]">
-                    MBE
-                  </p>
-                  <p className="mt-3 text-xl font-black text-white sm:text-2xl">
-                    Streetwear
-                  </p>
-                </div>
-                <div className="rounded-[20px] border border-white/10 bg-black/35 p-4 sm:rounded-[26px] sm:p-6">
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-white/45 sm:text-sm sm:tracking-[0.28em]">
-                    Calidad
-                  </p>
-                  <p className="mt-3 text-xl font-black text-white sm:text-2xl">
-                    Premium
-                  </p>
-                </div>
-                <div className="rounded-[20px] border border-white/10 bg-black/35 p-4 sm:rounded-[26px] sm:p-6">
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-white/45 sm:text-sm sm:tracking-[0.28em]">
-                    Drops
-                  </p>
-                  <p className="mt-3 text-xl font-black text-white sm:text-2xl">
-                    Exclusivos
-                  </p>
-                </div>
-                <div className="rounded-[20px] border border-white/10 bg-black/35 p-4 sm:rounded-[26px] sm:p-6">
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-white/45 sm:text-sm sm:tracking-[0.28em]">
-                    Marca
-                  </p>
-                  <p className="mt-3 text-xl font-black text-white sm:text-2xl">
-                    MBE
-                  </p>
-                </div>
+            )}
+
+            {hasMultiple && (
+              <div className="mt-7 flex flex-wrap items-center gap-2">
+                {safeSlides.map((slide, index) => (
+                  <button
+                    key={slide.id}
+                    onClick={() => setActiveIndex(index)}
+                    aria-label={`Ir al slide ${index + 1}`}
+                    className={`h-2.5 rounded-full transition-all ${
+                      index === activeIndex
+                        ? 'w-10 bg-white'
+                        : 'w-2.5 bg-white/28 hover:bg-white/55'
+                    }`}
+                  />
+                ))}
               </div>
             )}
           </div>
-        </div>
 
-        {slides.length > 1 && (
-          <>
-            <button
-              onClick={goPrev}
-              aria-label="Slide anterior"
-              className="absolute left-3 top-1/2 z-10 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-2.5 text-white/80 backdrop-blur-md transition-colors hover:bg-black/65 sm:left-4 sm:p-3"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
+          <div className="order-1 flex items-center justify-center lg:order-2">
+            <div className="relative h-[270px] w-full overflow-hidden rounded-[22px] border border-white/10 bg-black/30 shadow-[0_20px_80px_rgba(0,0,0,0.35)] sm:h-[340px] sm:rounded-[28px] md:h-[410px] lg:h-[470px]">
+              <div className="absolute inset-0 z-10 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent" />
 
-            <button
-              onClick={goNext}
-              aria-label="Slide siguiente"
-              className="absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-2.5 text-white/80 backdrop-blur-md transition-colors hover:bg-black/65 sm:right-4 sm:p-3"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </button>
+              {activeSlide.image ? (
+                <>
+                  <Image
+                    key={activeSlide.id}
+                    src={activeSlide.image}
+                    alt={activeSlide.title}
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    className="object-cover"
+                    priority
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
+                </>
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-center text-white/55">
+                  Sin imagen principal
+                </div>
+              )}
 
-            <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 sm:bottom-5">
-              {slides.map((slide, index) => (
-                <button
-                  key={slide.id}
-                  onClick={() => setActiveIndex(index)}
-                  aria-label={`Ir al slide ${index + 1}`}
-                  className={`h-2.5 rounded-full transition-all ${
-                    index === activeIndex ? 'w-8 bg-white' : 'w-2.5 bg-white/35'
-                  }`}
-                />
-              ))}
+              <div className="absolute bottom-4 left-4 right-4 z-20 rounded-[1.2rem] border border-white/10 bg-black/45 px-4 py-3 backdrop-blur-md">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/60">
+                  {activeSlide.eyebrow}
+                </p>
+                <p className="mt-1 line-clamp-2 text-sm font-medium text-white/90 sm:text-base">
+                  {activeSlide.title}
+                </p>
+              </div>
             </div>
-          </>
-        )}
-      </div>
-
-      {slides.length > 1 && (
-        <div className="mt-4 flex items-center justify-center gap-2 text-center text-[11px] text-muted-foreground sm:text-xs">
-          <Clock3 className="h-3.5 w-3.5 shrink-0" />
-          <span>El banner cambia automaticamente cada 30 segundos</span>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }
