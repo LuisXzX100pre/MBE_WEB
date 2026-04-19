@@ -1,4 +1,3 @@
-// app/mis-pedidos/[id]/page.tsx
 import Link from 'next/link'
 import Image from 'next/image'
 import { notFound, redirect } from 'next/navigation'
@@ -6,7 +5,16 @@ import { Header } from '@/components/store/header'
 import { Footer } from '@/components/store/footer'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { ArrowLeft, PackageCheck, Truck, CreditCard, MapPin } from 'lucide-react'
+import {
+  ArrowLeft,
+  PackageCheck,
+  Truck,
+  CreditCard,
+  MapPin,
+  ExternalLink,
+  FileText,
+  Package,
+} from 'lucide-react'
 
 async function getOrderForUser(orderId: string, userId: string) {
   return prisma.order.findFirst({
@@ -85,6 +93,10 @@ function getProgressStep(status: string) {
   }
 }
 
+function money(value: number | null | undefined) {
+  return `${Number(value || 0).toFixed(2)} MXN`
+}
+
 export default async function PedidoDetallePage({
   params,
 }: {
@@ -103,10 +115,16 @@ export default async function PedidoDetallePage({
     notFound()
   }
 
+  const orderAny = order as typeof order & {
+    shippingTrackingNumber?: string | null
+    shippingTrackingUrl?: string | null
+    shippingLabelUrl?: string | null
+  }
+
   const currentStep = getProgressStep(order.status)
 
   const shippingLines = order.shippingAddress
-    ? order.shippingAddress.split('\n').filter(Boolean)
+    ? order.shippingAddress.split(',').map((line) => line.trim()).filter(Boolean)
     : []
 
   const timeline = [
@@ -249,7 +267,7 @@ export default async function PedidoDetallePage({
               <div className="rounded-3xl border border-border bg-card p-6">
                 <h2 className="text-xl font-bold mb-5">Resumen</h2>
 
-                <div className="space-y-4">
+                <div className="space-y-5">
                   <div className="flex items-start gap-3">
                     <PackageCheck className="h-5 w-5 text-muted-foreground mt-0.5" />
                     <div>
@@ -282,46 +300,111 @@ export default async function PedidoDetallePage({
                   <div className="flex items-start gap-3">
                     <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
                     <div>
-                      <p className="text-sm text-muted-foreground">Envio</p>
+                      <p className="text-sm text-muted-foreground">Envío</p>
                       <div className="space-y-1">
                         {shippingLines.map((line, index) => (
                           <p key={index} className="font-medium break-words">
                             {line}
                           </p>
                         ))}
+
+                        {order.shippingCarrier && (
+                          <p className="text-sm text-muted-foreground pt-2">
+                            Paquetería: {order.shippingCarrier}
+                            {order.shippingService ? ` · ${order.shippingService}` : ''}
+                          </p>
+                        )}
+
+                        {typeof order.shippingDays === 'number' && (
+                          <p className="text-sm text-muted-foreground">
+                            Estimado: {order.shippingDays} día(s)
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  {(order.status === 'SHIPPED' || order.status === 'DELIVERED') && (
-                    <div className="flex items-start gap-3">
-                      <Truck className="h-5 w-5 text-muted-foreground mt-0.5" />
-                      <div>
-                        <p className="text-sm text-muted-foreground">Seguimiento</p>
-                        <p className="font-medium">
-                          Tu pedido ya va en camino.
-                        </p>
+                  {(orderAny.shippingTrackingNumber ||
+                    orderAny.shippingTrackingUrl ||
+                    orderAny.shippingLabelUrl) && (
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                      <div className="flex items-start gap-3">
+                        <Truck className="h-5 w-5 text-muted-foreground mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm text-muted-foreground">Seguimiento</p>
+
+                          {orderAny.shippingTrackingNumber && (
+                            <p className="font-medium mt-1 break-all">
+                              {orderAny.shippingTrackingNumber}
+                            </p>
+                          )}
+
+                          <div className="mt-3 flex flex-wrap gap-3">
+                            {orderAny.shippingTrackingUrl && (
+                              <a
+                                href={orderAny.shippingTrackingUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium hover:bg-white/[0.08]"
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                                Rastrear paquete
+                              </a>
+                            )}
+
+                            {orderAny.shippingLabelUrl && (
+                              <a
+                                href={orderAny.shippingLabelUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium hover:bg-white/[0.08]"
+                              >
+                                <FileText className="h-4 w-4" />
+                                Ver guía
+                              </a>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
+
+                  {!orderAny.shippingTrackingNumber &&
+                    !orderAny.shippingTrackingUrl &&
+                    !orderAny.shippingLabelUrl &&
+                    order.status !== 'CANCELLED' && (
+                      <div className="flex items-start gap-3">
+                        <Package className="h-5 w-5 text-muted-foreground mt-0.5" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Seguimiento</p>
+                          <p className="font-medium">
+                            Aún no hay guía o rastreo disponible.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                 </div>
 
                 <div className="mt-6 border-t border-border pt-5">
                   <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
                     <span>Subtotal</span>
-                    <span>${order.total.toFixed(2)} MXN</span>
+                    <span>{money(order.subtotal ?? order.total)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
+                    <span>Envío</span>
+                    <span>{money(order.shippingCost)}</span>
                   </div>
                   <div className="flex items-center justify-between text-lg font-black">
                     <span>Total</span>
-                    <span>${order.total.toFixed(2)} MXN</span>
+                    <span>{money(order.total)}</span>
                   </div>
                 </div>
               </div>
 
               <div className="rounded-3xl border border-border bg-card p-6">
-                <h2 className="text-xl font-bold mb-3">Necesitas ayuda?</h2>
+                <h2 className="text-xl font-bold mb-3">¿Necesitas ayuda?</h2>
                 <p className="text-muted-foreground text-sm mb-5">
-                  Si tienes dudas sobre tu pedido, puedes contactarnos y mencionar tu numero de orden.
+                  Si tienes dudas sobre tu pedido, puedes contactarnos y mencionar tu número de orden.
                 </p>
                 <p className="font-mono text-xs break-all text-muted-foreground">
                   {order.id}

@@ -125,10 +125,17 @@ async function ensureShipmentForOrder(orderId: string) {
 
   if (!order) return
 
+  const orderAny = order as typeof order & {
+    skydropxShipmentId?: string | null
+    shippingTrackingNumber?: string | null
+    shippingTrackingUrl?: string | null
+    shippingLabelUrl?: string | null
+  }
+
   if (
-    order.skydropxShipmentId ||
-    order.shippingTrackingNumber ||
-    order.shippingLabelUrl
+    orderAny.skydropxShipmentId ||
+    orderAny.shippingTrackingNumber ||
+    orderAny.shippingLabelUrl
   ) {
     return
   }
@@ -141,13 +148,13 @@ async function ensureShipmentForOrder(orderId: string) {
   }
 
   if (
-    !order.shippingFullName ||
+    !order.shippingRecipient ||
     !order.shippingPhone ||
     !order.shippingEmail ||
     !order.shippingPostalCode ||
     !order.shippingState ||
     !order.shippingCity ||
-    !order.shippingNeighborhood ||
+    !order.shippingColony ||
     !order.shippingStreet
   ) {
     console.warn(
@@ -160,33 +167,44 @@ async function ensureShipmentForOrder(orderId: string) {
   const addressFrom = getStoreOriginAddress()
 
   const addressTo = buildDestinationAddress({
-    recipient: order.shippingFullName,
-    company: order.shippingFullName,
+    recipient: order.shippingRecipient,
+    company: order.shippingRecipient,
     phone: order.shippingPhone,
     email: order.shippingEmail,
     postalCode: order.shippingPostalCode,
     state: order.shippingState,
     city: order.shippingCity,
-    colony: order.shippingNeighborhood,
+    colony: order.shippingColony,
     street: order.shippingStreet,
     extNumber: order.shippingExtNumber || '',
     intNumber: order.shippingIntNumber || '',
     reference: order.shippingReference || '',
     furtherInformation: '',
-    countryCode: order.shippingCountry || 'MX',
+    countryCode: 'MX',
   })
 
   const parcels = buildParcelsFromCartItems(
-    order.items.map((item) => ({
-      quantity: item.quantity,
-      product: {
-        price: item.unitPrice,
-        weightKg: item.product.weightKg,
-        parcelLength: item.product.lengthCm,
-        parcelWidth: item.product.widthCm,
-        parcelHeight: item.product.heightCm,
-      },
-    }))
+    order.items.map((item) => {
+      const productAny = item.product as typeof item.product & {
+        lengthCm?: number | null
+        widthCm?: number | null
+        heightCm?: number | null
+        parcelLength?: number | null
+        parcelWidth?: number | null
+        parcelHeight?: number | null
+      }
+
+      return {
+        quantity: item.quantity,
+        product: {
+          price: item.unitPrice,
+          weightKg: item.product.weightKg,
+          parcelLength: productAny.parcelLength ?? productAny.lengthCm ?? 30,
+          parcelWidth: productAny.parcelWidth ?? productAny.widthCm ?? 25,
+          parcelHeight: productAny.parcelHeight ?? productAny.heightCm ?? 4,
+        },
+      }
+    })
   )
 
   try {
@@ -202,17 +220,24 @@ async function ensureShipmentForOrder(orderId: string) {
     await prisma.order.update({
       where: { id: orderId },
       data: {
-        skydropxShipmentId: shipmentData.shipmentId || null,
-        shippingTrackingNumber: shipmentData.trackingNumber || null,
-        shippingTrackingUrl: shipmentData.trackingUrl || null,
-        shippingLabelUrl: shipmentData.labelUrl || null,
+        ...(shipmentData.shipmentId
+          ? { skydropxShipmentId: shipmentData.shipmentId }
+          : {}),
+        ...(shipmentData.trackingNumber
+          ? { shippingTrackingNumber: shipmentData.trackingNumber }
+          : {}),
+        ...(shipmentData.trackingUrl
+          ? { shippingTrackingUrl: shipmentData.trackingUrl }
+          : {}),
+        ...(shipmentData.labelUrl ? { shippingLabelUrl: shipmentData.labelUrl } : {}),
         shippingCarrier: shipmentData.carrier || order.shippingCarrier,
         shippingService: shipmentData.service || order.shippingService,
-        shippingEstimatedDays:
+        shippingDays:
           typeof shipmentData.estimatedDays === 'number'
             ? shipmentData.estimatedDays
-            : order.shippingEstimatedDays,
-      },
+            : order.shippingDays,
+        status: order.status === 'PAID' ? 'PROCESSING' : order.status,
+      } as any,
     })
   } catch (error) {
     console.error('[stripe:webhook:shipment]', error)
@@ -252,11 +277,10 @@ async function createFallbackOrderFromSucceededPayment(
         subtotal: Number.isFinite(subtotal) ? subtotal : 0,
         shippingCost: Number.isFinite(shippingCost) ? shippingCost : 0,
         total: Number.isFinite(total) ? total : 0,
-        currency: 'MXN',
         status: 'PAID',
 
         shippingAddress: paymentIntent.metadata.shippingAddress || null,
-        shippingFullName: shippingAddress?.recipient || null,
+        shippingRecipient: shippingAddress?.recipient || null,
         shippingPhone: normalizePhone(
           shippingAddress?.phone || paymentIntent.metadata.phoneNumber
         ),
@@ -264,22 +288,21 @@ async function createFallbackOrderFromSucceededPayment(
         shippingPostalCode: shippingAddress?.postalCode || null,
         shippingState: shippingAddress?.state || null,
         shippingCity: shippingAddress?.city || null,
-        shippingNeighborhood: shippingAddress?.colony || null,
+        shippingColony: shippingAddress?.colony || null,
         shippingStreet: shippingAddress?.street || null,
         shippingExtNumber: shippingAddress?.extNumber || null,
         shippingIntNumber: shippingAddress?.intNumber || null,
         shippingReference: shippingAddress?.reference || null,
-        shippingCountry: 'MX',
 
         shippingCarrier:
           shippingQuote?.carrierDisplayName || shippingQuote?.carrier || null,
         shippingService: shippingQuote?.serviceName || null,
         shippingRateId: shippingQuote?.rateId || null,
-        shippingBucket: shippingQuote?.bucket || null,
-        shippingEstimatedDays:
+        shippingDays:
           typeof shippingQuote?.estimatedDays === 'number'
             ? shippingQuote.estimatedDays
             : null,
+        shippingCurrency: shippingQuote?.currency || 'MXN',
         shippingQuoteJson: shippingQuote || undefined,
 
         items: {
@@ -377,7 +400,8 @@ async function handleProcessing(paymentIntent: Stripe.PaymentIntent) {
         typeof paymentIntent.payment_method === 'string'
           ? paymentIntent.payment_method
           : paymentIntent.payment_method?.id,
-      payerEmail: paymentIntent.receipt_email || paymentIntent.metadata.email || null,
+      payerEmail:
+        paymentIntent.receipt_email || paymentIntent.metadata.email || null,
       receiptEmail:
         paymentIntent.receipt_email || paymentIntent.metadata.email || null,
     },
@@ -397,12 +421,15 @@ async function handleFailedOrCanceled(paymentIntent: Stripe.PaymentIntent) {
         status: 'FAILED',
         paymentIntentId: paymentIntent.id,
         transactionId:
-          eventCouldBeFinal(paymentIntent.status) ? paymentIntent.id : existingPayment.transactionId,
+          eventCouldBeFinal(paymentIntent.status)
+            ? paymentIntent.id
+            : existingPayment.transactionId,
         paymentMethodId:
           typeof paymentIntent.payment_method === 'string'
             ? paymentIntent.payment_method
             : paymentIntent.payment_method?.id,
-        payerEmail: paymentIntent.receipt_email || paymentIntent.metadata.email || null,
+        payerEmail:
+          paymentIntent.receipt_email || paymentIntent.metadata.email || null,
         receiptEmail:
           paymentIntent.receipt_email || paymentIntent.metadata.email || null,
       },

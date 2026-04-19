@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {
@@ -23,6 +23,8 @@ import {
   Truck,
   Sparkles,
   CheckCircle2,
+  ShieldCheck,
+  Zap,
 } from 'lucide-react'
 import { PaymentCardPreview } from '@/components/store/payment-card-preview'
 
@@ -119,10 +121,24 @@ function bucketDescription(bucket: ShippingBucket) {
   return 'La entrega más rápida disponible'
 }
 
+function bucketShortDescription(bucket: ShippingBucket) {
+  if (bucket === 'cheapest') return 'Menor costo'
+  if (bucket === 'best_value') return 'Más equilibrado'
+  return 'Más rápido'
+}
+
 function bucketIcon(bucket: ShippingBucket) {
   if (bucket === 'cheapest') return <Truck className="h-4 w-4" />
-  if (bucket === 'best_value') return <Sparkles className="h-4 w-4" />
-  return <Truck className="h-4 w-4" />
+  if (bucket === 'best_value') return <ShieldCheck className="h-4 w-4" />
+  return <Zap className="h-4 w-4" />
+}
+
+function sortShippingOptions(options: ShippingOption[]) {
+  const order: ShippingBucket[] = ['cheapest', 'best_value', 'express']
+
+  return [...options].sort(
+    (a, b) => order.indexOf(a.bucket) - order.indexOf(b.bucket)
+  )
 }
 
 function CheckoutInner({ items, total }: CheckoutFormProps) {
@@ -154,6 +170,8 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([])
   const [selectedShippingOption, setSelectedShippingOption] =
     useState<ShippingOption | null>(null)
+  const [activeShippingBucket, setActiveShippingBucket] =
+    useState<ShippingBucket>('cheapest')
 
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -166,6 +184,27 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
   const subtotalFormatted = useMemo(() => money(subtotal), [subtotal])
   const shippingFormatted = useMemo(() => money(shippingCost), [shippingCost])
   const grandTotalFormatted = useMemo(() => money(grandTotal), [grandTotal])
+
+  const orderedShippingOptions = useMemo(
+    () => sortShippingOptions(shippingOptions),
+    [shippingOptions]
+  )
+
+  const visibleShippingOption = useMemo(() => {
+    if (!orderedShippingOptions.length) return null
+
+    const exact = orderedShippingOptions.find(
+      (option) => option.bucket === activeShippingBucket
+    )
+
+    return exact || orderedShippingOptions[0]
+  }, [orderedShippingOptions, activeShippingBucket])
+
+  useEffect(() => {
+    if (!selectedShippingOption && visibleShippingOption) {
+      setSelectedShippingOption(visibleShippingOption)
+    }
+  }, [selectedShippingOption, visibleShippingOption])
 
   const validateAddressForQuote = () => {
     if (!recipient.trim()) return 'Falta el nombre del destinatario'
@@ -222,15 +261,19 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
         throw new Error('No se encontraron opciones de envío para esa dirección')
       }
 
-      setShippingOptions(data.options)
+      const sorted = sortShippingOptions(data.options)
+      setShippingOptions(sorted)
 
       const preferred =
         data.recommended?.cheapest ||
         data.recommended?.bestValue ||
         data.recommended?.express ||
-        data.options[0]
+        sorted[0]
 
-      setSelectedShippingOption(preferred ?? null)
+      if (preferred) {
+        setSelectedShippingOption(preferred)
+        setActiveShippingBucket(preferred.bucket)
+      }
     } catch (err) {
       console.error('[shipping:quote]', err)
       setShippingOptions([])
@@ -238,6 +281,15 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
       setError(err instanceof Error ? err.message : 'Error al cotizar el envío')
     } finally {
       setQuoteLoading(false)
+    }
+  }
+
+  const handleSelectShippingBucket = (bucket: ShippingBucket) => {
+    setActiveShippingBucket(bucket)
+
+    const found = orderedShippingOptions.find((option) => option.bucket === bucket)
+    if (found) {
+      setSelectedShippingOption(found)
     }
   }
 
@@ -655,60 +707,115 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
             </button>
           </div>
 
-          {shippingOptions.length > 0 && (
+          {shippingOptions.length > 0 && visibleShippingOption && (
             <div className="rounded-[24px] border border-white/10 bg-white/[0.025] p-4 sm:p-5">
               <div className="mb-4 flex items-center gap-2">
                 <Truck className="h-4 w-4 text-white/80" />
                 <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-white/90">
-                  Opciones de envío
+                  Elige tu envío
                 </h3>
               </div>
 
-              <div className="grid grid-cols-1 gap-3">
-                {shippingOptions.map((option) => {
-                  const selected = selectedShippingOption?.rateId === option.rateId
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {orderedShippingOptions.map((option) => {
+                  const active = activeShippingBucket === option.bucket
 
                   return (
                     <button
                       key={option.rateId}
                       type="button"
-                      onClick={() => setSelectedShippingOption(option)}
-                      className={`rounded-[20px] border p-4 text-left transition ${
-                        selected
-                          ? 'border-white bg-white text-black shadow-[0_16px_40px_rgba(255,255,255,0.08)]'
-                          : 'border-white/10 bg-white/[0.04] text-white hover:border-white/20 hover:bg-white/[0.06]'
+                      onClick={() => handleSelectShippingBucket(option.bucket)}
+                      className={`rounded-[18px] border px-4 py-3 text-left transition-all ${
+                        active
+                          ? 'border-white bg-white text-black shadow-[0_12px_30px_rgba(255,255,255,0.10)]'
+                          : 'border-white/10 bg-white/[0.03] text-white hover:border-white/20 hover:bg-white/[0.05]'
                       }`}
                     >
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="min-w-0">
-                          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-current/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] opacity-90">
-                            {bucketIcon(option.bucket)}
-                            {bucketLabel(option.bucket)}
-                          </div>
-
-                          <p className="text-sm font-semibold">
-                            {option.carrierDisplayName} · {option.serviceName}
-                          </p>
-
-                          <p className={`mt-1 text-xs ${selected ? 'text-black/65' : 'text-white/55'}`}>
-                            {bucketDescription(option.bucket)}
-                          </p>
-
-                          <p className={`mt-1 text-xs ${selected ? 'text-black/65' : 'text-white/55'}`}>
-                            {option.estimatedDays
-                              ? `${option.estimatedDays} día(s) estimado(s)`
-                              : 'Tiempo estimado no disponible'}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <p className="text-lg font-black">{money(option.total)}</p>
-                          {selected && <CheckCircle2 className="h-5 w-5" />}
-                        </div>
+                      <div className="flex items-center gap-2">
+                        {bucketIcon(option.bucket)}
+                        <span className="text-sm font-semibold">
+                          {bucketLabel(option.bucket)}
+                        </span>
                       </div>
+
+                      <p
+                        className={`mt-1 text-xs ${
+                          active ? 'text-black/65' : 'text-white/50'
+                        }`}
+                      >
+                        {bucketShortDescription(option.bucket)}
+                      </p>
                     </button>
                   )
                 })}
+              </div>
+
+              <div className="mt-4 rounded-[22px] border border-white/10 bg-gradient-to-br from-white/[0.05] via-white/[0.02] to-transparent p-4 sm:p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.22em] text-white">
+                      {bucketIcon(visibleShippingOption.bucket)}
+                      {bucketLabel(visibleShippingOption.bucket)}
+                    </div>
+
+                    <h4 className="mt-3 text-lg font-bold text-white sm:text-xl">
+                      {visibleShippingOption.carrierDisplayName}
+                    </h4>
+
+                    <p className="mt-1 text-sm text-white/72">
+                      {visibleShippingOption.serviceName}
+                    </p>
+
+                    <p className="mt-3 text-sm text-white/58">
+                      {bucketDescription(visibleShippingOption.bucket)}
+                    </p>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/75">
+                        {visibleShippingOption.estimatedDays
+                          ? `${visibleShippingOption.estimatedDays} día(s) estimado(s)`
+                          : 'Sin tiempo estimado'}
+                      </span>
+
+                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/75">
+                        {visibleShippingOption.pickup
+                          ? 'Con recolección'
+                          : 'Entrega estándar'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="sm:text-right">
+                    <p className="text-xs uppercase tracking-[0.22em] text-white/45">
+                      Total del envío
+                    </p>
+                    <p className="mt-1 text-2xl font-black text-white">
+                      {money(visibleShippingOption.total)}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedShippingOption(visibleShippingOption)}
+                  className={`mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 font-semibold transition ${
+                    selectedShippingOption?.rateId === visibleShippingOption.rateId
+                      ? 'bg-white text-black'
+                      : 'border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]'
+                  }`}
+                >
+                  {selectedShippingOption?.rateId === visibleShippingOption.rateId ? (
+                    <>
+                      <CheckCircle2 className="h-5 w-5" />
+                      Opción seleccionada
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-5 w-5" />
+                      Elegir esta opción
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           )}
