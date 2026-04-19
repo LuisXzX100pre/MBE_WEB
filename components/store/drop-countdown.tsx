@@ -98,42 +98,42 @@ export function DropCountdown({
 
   if (variant === 'product') {
     return (
-      <div className="relative w-full overflow-hidden rounded-[1.6rem] border border-white/10 bg-white/[0.03] px-4 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.20)] sm:px-5 sm:py-5">
+      <div className="relative w-full overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/[0.03] px-3 py-3 shadow-[0_20px_60px_rgba(0,0,0,0.20)] sm:px-5 sm:py-5">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.05),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.03),transparent_24%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:32px_32px] opacity-20" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:28px_28px] opacity-20" />
 
         <div className="relative z-10">
-          <div className="mb-4 flex items-center gap-2">
+          <div className="mb-3 flex items-center gap-2">
             <span className="relative flex h-2.5 w-2.5 shrink-0">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/45 opacity-75" />
               <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
             </span>
 
-            <span className="text-[11px] font-semibold uppercase tracking-[0.26em] text-white/70">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/70 sm:text-[11px]">
               Próximo drop
             </span>
           </div>
 
-          <h2 className="text-3xl font-black leading-[0.95] tracking-tight text-white sm:text-4xl">
+          <h2 className="text-[1.9rem] font-black leading-[0.95] tracking-tight text-white sm:text-4xl">
             {title}
           </h2>
 
           {subtitle && (
-            <p className="mt-3 text-sm leading-6 text-white/65 sm:text-[15px]">
+            <p className="mt-3 max-w-xl text-[13px] leading-6 text-white/65 sm:text-[15px]">
               {subtitle}
             </p>
           )}
 
-          <div className="mt-5 grid grid-cols-4 gap-2 sm:gap-3">
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 sm:grid-cols-4 sm:gap-3">
             {items.map((item) => (
               <div
                 key={item.label}
-                className="min-w-0 rounded-[1.2rem] border border-white/10 bg-black/25 px-2 py-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md sm:px-3 sm:py-5"
+                className="min-w-0 rounded-[1.15rem] border border-white/10 bg-black/25 px-2 py-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md sm:px-3 sm:py-5"
               >
-                <div className="truncate text-4xl font-black leading-none text-white tabular-nums sm:text-5xl">
+                <div className="truncate text-[2.35rem] font-black leading-none text-white tabular-nums sm:text-5xl">
                   {item.value}
                 </div>
-                <div className="mt-3 text-[10px] uppercase tracking-[0.26em] text-white/45 sm:text-[11px]">
+                <div className="mt-2 text-[9px] uppercase tracking-[0.22em] text-white/45 sm:mt-3 sm:text-[11px] sm:tracking-[0.26em]">
                   {item.label}
                 </div>
               </div>
@@ -141,10 +141,10 @@ export function DropCountdown({
           </div>
 
           {ctaHref && (
-            <div className="mt-5">
+            <div className="mt-4 sm:mt-5">
               <Link
                 href={ctaHref}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black transition-all hover:translate-y-[-1px] hover:opacity-95"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black transition-all hover:translate-y-[-1px] hover:opacity-95 sm:w-auto"
               >
                 {ctaLabel}
                 <ArrowRight className="h-4 w-4" />
