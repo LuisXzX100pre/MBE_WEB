@@ -1,4 +1,3 @@
-// app/login/page.tsx
 'use client'
 
 import { Suspense, useMemo, useState } from 'react'
@@ -96,18 +95,9 @@ function LoginPageContent() {
             </div>
 
             <div>
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <label className="block text-sm font-medium">
-                  Contraseña
-                </label>
-
-                <Link
-                  href="/recuperar-password"
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  ¿Olvidaste tu contraseña?
-                </Link>
-              </div>
+              <label className="block text-sm font-medium mb-2">
+                Contraseña
+              </label>
 
               <div className="relative">
                 <input
@@ -131,6 +121,15 @@ function LoginPageContent() {
                     <Eye className="w-5 h-5" />
                   )}
                 </button>
+              </div>
+
+              <div className="mt-2 flex justify-end">
+                <Link
+                  href="/recuperar-password"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  ¿Olvidaste tu contraseña?
+                </Link>
               </div>
             </div>
 
