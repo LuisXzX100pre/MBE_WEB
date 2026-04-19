@@ -1,8 +1,7 @@
-// app/login/page.tsx
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useAuth } from '@/contexts/auth-context'
@@ -10,6 +9,7 @@ import { Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { login } = useAuth()
 
   const [identifier, setIdentifier] = useState('')
@@ -17,6 +17,22 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  const successMessage = useMemo(() => {
+    if (searchParams.get('registered') === '1') {
+      return 'Tu cuenta fue creada correctamente. Ahora inicia sesión.'
+    }
+
+    if (searchParams.get('reset') === '1') {
+      return 'Tu contraseña fue restablecida correctamente. Ya puedes iniciar sesión.'
+    }
+
+    if (searchParams.get('sent') === '1') {
+      return 'Si el correo existe en nuestro sistema, te enviamos instrucciones para restablecer tu contraseña.'
+    }
+
+    return ''
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -56,6 +72,12 @@ export default function LoginPage() {
             </p>
           </div>
 
+          {successMessage && (
+            <div className="mb-6 rounded-lg border border-green-500/20 bg-green-500/10 p-3">
+              <p className="text-sm text-green-600">{successMessage}</p>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-medium mb-2">
@@ -73,9 +95,19 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">
-                Contraseña
-              </label>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="block text-sm font-medium">
+                  Contraseña
+                </label>
+
+                <Link
+                  href="/recuperar-password"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  ¿Olvidaste tu contraseña?
+                </Link>
+              </div>
+
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}

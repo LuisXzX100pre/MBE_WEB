@@ -9,16 +9,30 @@ datasource db {
 }
 
 model User {
+  id                  String               @id @default(cuid())
+  username            String               @unique
+  email               String?              @unique
+  phone               String?
+  password            String
+  role                Role                 @default(CLIENTE)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  cart                Cart?
+  orders              Order[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model PasswordResetToken {
   id        String   @id @default(cuid())
-  username  String   @unique
-  email     String?  @unique
-  phone     String?
-  password  String
-  role      Role     @default(CLIENTE)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  cart      Cart?
-  orders    Order[]
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 enum Role {

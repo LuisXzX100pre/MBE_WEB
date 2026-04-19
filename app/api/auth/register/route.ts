@@ -1,8 +1,6 @@
-// app/api/auth/register/route.ts
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { hashPassword, createToken } from '@/lib/auth'
-import { cookies } from 'next/headers'
+import { hashPassword } from '@/lib/auth'
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
@@ -31,10 +29,7 @@ export async function POST(request: Request) {
 
     if (!username || !email || !phone || !password) {
       return NextResponse.json(
-        {
-          error:
-            'Usuario, correo, teléfono y contraseña son requeridos',
-        },
+        { error: 'Usuario, correo, teléfono y contraseña son requeridos' },
         { status: 400 }
       )
     }
@@ -50,17 +45,11 @@ export async function POST(request: Request) {
     }
 
     if (!isValidEmail(email)) {
-      return NextResponse.json(
-        { error: 'Ingresa un correo válido' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Ingresa un correo válido' }, { status: 400 })
     }
 
     if (phone.length < 10 || phone.length > 15) {
-      return NextResponse.json(
-        { error: 'Ingresa un teléfono válido' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Ingresa un teléfono válido' }, { status: 400 })
     }
 
     if (!isStrongPassword(password)) {
@@ -108,7 +97,7 @@ export async function POST(request: Request) {
 
     const hashedPassword = await hashPassword(password)
 
-    const user = await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       const createdUser = await tx.user.create({
         data: {
           username,
@@ -123,35 +112,14 @@ export async function POST(request: Request) {
           userId: createdUser.id,
         },
       })
-
-      return createdUser
-    })
-
-    const token = await createToken(user.id)
-
-    const cookieStore = await cookies()
-    cookieStore.set('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7,
-      path: '/',
     })
 
     return NextResponse.json({
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-      },
+      success: true,
+      message: 'Cuenta creada correctamente. Ahora inicia sesión.',
     })
   } catch (error) {
     console.error('Error en registro:', error)
-    return NextResponse.json(
-      { error: 'Error al registrar usuario' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Error al registrar usuario' }, { status: 500 })
   }
 }

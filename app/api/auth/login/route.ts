@@ -1,4 +1,3 @@
-// app/api/auth/login/route.ts
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyPassword, createToken } from '@/lib/auth'
@@ -43,19 +42,13 @@ export async function POST(request: Request) {
     })
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'Credenciales incorrectas' },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: 'Credenciales incorrectas' }, { status: 401 })
     }
 
     const isValid = await verifyPassword(password, user.password)
 
     if (!isValid) {
-      return NextResponse.json(
-        { error: 'Credenciales incorrectas' },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: 'Credenciales incorrectas' }, { status: 401 })
     }
 
     const token = await createToken(user.id)
@@ -80,9 +73,6 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error('Error en login:', error)
-    return NextResponse.json(
-      { error: 'Error al iniciar sesión' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Error al iniciar sesión' }, { status: 500 })
   }
 }

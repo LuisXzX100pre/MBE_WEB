@@ -1,4 +1,3 @@
-// app/registro/page.tsx
 'use client'
 
 import { useMemo, useState } from 'react'
@@ -109,7 +108,7 @@ export default function RegisterPage() {
     setLoading(false)
 
     if (result.success) {
-      router.push('/')
+      router.push('/login?registered=1')
       router.refresh()
     } else {
       setError(result.error || 'Error al crear cuenta')

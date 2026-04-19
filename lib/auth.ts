@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { prisma } from './prisma'
 import bcrypt from 'bcryptjs'
 import { SignJWT, jwtVerify } from 'jose'
+import { createHash, randomBytes } from 'crypto'
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'your-secret-key-change-in-production'
@@ -30,6 +31,18 @@ export async function verifyToken(token: string) {
   } catch {
     return null
   }
+}
+
+export function hashTextToken(token: string) {
+  return createHash('sha256').update(token).digest('hex')
+}
+
+export function generatePasswordResetToken() {
+  const token = randomBytes(32).toString('hex')
+  const tokenHash = hashTextToken(token)
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 30)
+
+  return { token, tokenHash, expiresAt }
 }
 
 export async function getCurrentUser() {

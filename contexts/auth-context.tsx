@@ -1,7 +1,6 @@
-// contexts/auth-context.tsx
 'use client'
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 
 interface User {
   id: string
@@ -18,16 +17,17 @@ interface RegisterPayload {
   password: string
 }
 
-interface AuthResponse {
+interface AuthResult {
   success: boolean
   error?: string
+  message?: string
 }
 
 interface AuthContextType {
   user: User | null
   loading: boolean
-  login: (identifier: string, password: string) => Promise<AuthResponse>
-  register: (data: RegisterPayload | string, password?: string) => Promise<AuthResponse>
+  login: (identifier: string, password: string) => Promise<AuthResult>
+  register: (payload: RegisterPayload) => Promise<AuthResult>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
 }
@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshUser()
   }, [])
 
-  const login = async (identifier: string, password: string): Promise<AuthResponse> => {
+  const login = async (identifier: string, password: string): Promise<AuthResult> => {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json()
 
       if (!res.ok) {
-        return { success: false, error: data.error }
+        return { success: false, error: data.error || 'Error al iniciar sesión' }
       }
 
       setUser(data.user)
@@ -79,33 +79,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const register = async (
-    data: RegisterPayload | string,
-    password?: string
-  ): Promise<AuthResponse> => {
+  const register = async (payload: RegisterPayload): Promise<AuthResult> => {
     try {
-      const payload =
-        typeof data === 'string'
-          ? {
-              username: data,
-              password: password ?? '',
-            }
-          : data
-
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
 
-      const responseData = await res.json()
+      const data = await res.json()
 
       if (!res.ok) {
-        return { success: false, error: responseData.error }
+        return { success: false, error: data.error || 'Error al crear la cuenta' }
       }
 
-      setUser(responseData.user)
-      return { success: true }
+      return {
+        success: true,
+        message: data.message || 'Cuenta creada correctamente',
+      }
     } catch {
       return { success: false, error: 'Error de conexión' }
     }
@@ -129,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext)
 
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider')
   }
 
