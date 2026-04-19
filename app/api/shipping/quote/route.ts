@@ -1,3 +1,4 @@
+// app/api/shipping/quote/route.ts
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import {
@@ -8,6 +9,10 @@ import {
   quoteShippingOptions,
 } from '@/lib/skydropx'
 import { getCurrentUser } from '@/lib/auth'
+import {
+  buildLocalFreeDeliveryOption,
+  isBenitoJuarezCancunDestination,
+} from '@/lib/local-delivery'
 
 type QuoteRequestBody = {
   recipient: string
@@ -68,7 +73,7 @@ export async function POST(req: Request) {
     if (!email) return badRequest('Falta el correo electrónico')
     if (!postalCode) return badRequest('Falta el código postal')
     if (!state) return badRequest('Falta el estado')
-    if (!city) return badRequest('Falta la ciudad')
+    if (!city) return badRequest('Falta la ciudad o municipio')
     if (!colony) return badRequest('Falta la colonia')
     if (!street) return badRequest('Falta la calle')
 
@@ -116,6 +121,41 @@ export async function POST(req: Request) {
       } else if (item.product.stock < item.quantity) {
         return badRequest(`No hay stock suficiente de ${item.product.name}`)
       }
+    }
+
+    const isLocalFreeDelivery = isBenitoJuarezCancunDestination({
+      state,
+      city,
+    })
+
+    if (isLocalFreeDelivery) {
+      const localOption = buildLocalFreeDeliveryOption()
+
+      return NextResponse.json({
+        success: true,
+        quotationId: `local_${user.id}_${Date.now()}`,
+        options: [localOption],
+        recommended: {
+          cheapest: localOption,
+          bestValue: localOption,
+          express: null,
+        },
+        destination: {
+          recipient,
+          phone,
+          email,
+          postalCode,
+          state,
+          city,
+          colony,
+          street,
+          extNumber,
+          intNumber,
+          reference,
+          furtherInformation,
+        },
+        localDelivery: true,
+      })
     }
 
     const parcels = buildParcelsFromCartItems(
@@ -252,6 +292,7 @@ export async function POST(req: Request) {
         furtherInformation,
       },
       parcels,
+      localDelivery: false,
     })
   } catch (error) {
     console.error('SKYDROPX_QUOTE_ERROR', error)

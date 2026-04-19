@@ -33,6 +33,10 @@ import {
   getStateNameByCode,
   type MexicoMunicipality,
 } from '@/lib/mx-locations'
+import {
+  formatShippingAmount,
+  isLocalFreeDeliveryOption,
+} from '@/lib/local-delivery'
 
 interface CartItem {
   id: string
@@ -163,6 +167,12 @@ function normalizeMunicipalitiesClient(
         index === arr.findIndex((x) => x.code === item.code && x.name === item.name)
     )
     .sort((a, b) => a.name.localeCompare(b.name, 'es-MX'))
+}
+
+function getShippingSubtitle(option: ShippingOption | null) {
+  if (!option) return 'Completa tu dirección y cotiza el envío'
+  if (isLocalFreeDeliveryOption(option)) return 'Entrega local gratis en Cancún'
+  return `${option.carrierDisplayName} · ${option.serviceName} · ${money(option.total)}`
 }
 
 function FieldLabel({
@@ -341,6 +351,9 @@ function ShippingOptionModal({
 
   if (!open || !currentOption) return null
 
+  const currentOptionAmount = formatShippingAmount(currentOption)
+  const isLocalOption = isLocalFreeDeliveryOption(currentOption)
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 py-6">
       <div
@@ -394,7 +407,9 @@ function ShippingOptionModal({
                   <div className="flex items-center gap-2">
                     {bucketIcon(option.bucket)}
                     <span className="text-sm font-semibold">
-                      {bucketLabel(option.bucket)}
+                      {isLocalFreeDeliveryOption(option)
+                        ? 'Entrega local'
+                        : bucketLabel(option.bucket)}
                     </span>
                   </div>
 
@@ -403,7 +418,9 @@ function ShippingOptionModal({
                       active ? 'text-black/65' : 'text-white/50'
                     }`}
                   >
-                    {bucketShortDescription(option.bucket)}
+                    {isLocalFreeDeliveryOption(option)
+                      ? 'Gratis en Benito Juárez'
+                      : bucketShortDescription(option.bucket)}
                   </p>
                 </button>
               )
@@ -415,7 +432,7 @@ function ShippingOptionModal({
               <div className="min-w-0">
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.22em] text-white">
                   {bucketIcon(currentOption.bucket)}
-                  {bucketLabel(currentOption.bucket)}
+                  {isLocalOption ? 'Entrega local' : bucketLabel(currentOption.bucket)}
                 </div>
 
                 <h4 className="mt-4 text-xl font-black text-white">
@@ -427,7 +444,9 @@ function ShippingOptionModal({
                 </p>
 
                 <p className="mt-4 text-sm text-white/58">
-                  {bucketDescription(currentOption.bucket)}
+                  {isLocalOption
+                    ? 'Nosotros te lo entregamos directo en Benito Juárez, Quintana Roo.'
+                    : bucketDescription(currentOption.bucket)}
                 </p>
 
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -438,7 +457,11 @@ function ShippingOptionModal({
                   </span>
 
                   <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/75">
-                    {currentOption.pickup ? 'Con recolección' : 'Entrega estándar'}
+                    {isLocalOption
+                      ? 'Entrega sin paquetería'
+                      : currentOption.pickup
+                        ? 'Con recolección'
+                        : 'Entrega estándar'}
                   </span>
                 </div>
               </div>
@@ -448,7 +471,7 @@ function ShippingOptionModal({
                   Total del envío
                 </p>
                 <p className="mt-2 text-3xl font-black text-white">
-                  {money(currentOption.total)}
+                  {currentOptionAmount}
                 </p>
               </div>
             </div>
@@ -515,7 +538,10 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
   const grandTotal = subtotal + shippingCost
 
   const subtotalFormatted = useMemo(() => money(subtotal), [subtotal])
-  const shippingFormatted = useMemo(() => money(shippingCost), [shippingCost])
+  const shippingFormatted = useMemo(
+    () => formatShippingAmount(selectedShippingOption),
+    [selectedShippingOption]
+  )
   const grandTotalFormatted = useMemo(() => money(grandTotal), [grandTotal])
 
   useEffect(() => {
@@ -848,9 +874,7 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
 
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span>Envío</span>
-              <span>
-                {selectedShippingOption ? shippingFormatted : 'Cotiza tu envío'}
-              </span>
+              <span>{shippingFormatted}</span>
             </div>
 
             <div className="h-px bg-white/10" />
@@ -874,10 +898,13 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
               </p>
 
               <p className="mt-1 text-xs text-white/50">
-                {bucketLabel(selectedShippingOption.bucket)}
-                {selectedShippingOption.estimatedDays
-                  ? ` · ${selectedShippingOption.estimatedDays} día(s) estimado(s)`
-                  : ''}
+                {isLocalFreeDeliveryOption(selectedShippingOption)
+                  ? 'Benito Juárez, Quintana Roo · Gratis'
+                  : `${bucketLabel(selectedShippingOption.bucket)}${
+                      selectedShippingOption.estimatedDays
+                        ? ` · ${selectedShippingOption.estimatedDays} día(s) estimado(s)`
+                        : ''
+                    }`}
               </p>
             </div>
           )}
@@ -906,11 +933,7 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
               <div className="overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.025]">
                 <AccordionHeader
                   title="1. Datos y envío"
-                  subtitle={
-                    selectedShippingOption
-                      ? `${selectedShippingOption.carrierDisplayName} · ${selectedShippingOption.serviceName} · ${money(selectedShippingOption.total)}`
-                      : 'Completa tu dirección y cotiza el envío'
-                  }
+                  subtitle={getShippingSubtitle(selectedShippingOption)}
                   icon={<MapPin className="h-4 w-4 text-white/80" />}
                   isOpen={openSection === 'shipping'}
                   onClick={() =>

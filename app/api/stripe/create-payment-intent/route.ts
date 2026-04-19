@@ -1,7 +1,13 @@
+// app/api/stripe/create-payment-intent/route.ts
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { stripe } from '@/lib/stripe'
 import { getCurrentUser } from '@/lib/auth'
+import {
+  buildLocalFreeDeliveryOption,
+  isBenitoJuarezCancunDestination,
+  isLocalFreeDeliveryOption,
+} from '@/lib/local-delivery'
 
 type SelectedShippingOption = {
   rateId: string
@@ -146,7 +152,7 @@ export async function POST(request: Request) {
     const reference = normalizeText(body.reference)
     const furtherInformation = normalizeText(body.furtherInformation)
 
-    const selectedShippingOption = body.selectedShippingOption
+    const rawSelectedShippingOption = body.selectedShippingOption
 
     if (!recipient || !phone || !email || !cardholderName) {
       return NextResponse.json(
@@ -167,16 +173,43 @@ export async function POST(request: Request) {
     }
 
     if (
-      !selectedShippingOption ||
-      !selectedShippingOption.rateId ||
-      !selectedShippingOption.carrierDisplayName ||
-      !selectedShippingOption.serviceName
+      !rawSelectedShippingOption ||
+      !rawSelectedShippingOption.rateId ||
+      !rawSelectedShippingOption.carrierDisplayName ||
+      !rawSelectedShippingOption.serviceName
     ) {
       return NextResponse.json(
         { error: 'Debes seleccionar una opción de envío válida' },
         { status: 400 }
       )
     }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { error: 'Formato de email inválido' },
+        { status: 400 }
+      )
+    }
+
+    const isLocalDestination = isBenitoJuarezCancunDestination({
+      state,
+      city,
+    })
+
+    if (!isLocalDestination && isLocalFreeDeliveryOption(rawSelectedShippingOption)) {
+      return NextResponse.json(
+        {
+          error:
+            'La entrega local gratis solo está disponible para Benito Juárez, Quintana Roo',
+        },
+        { status: 400 }
+      )
+    }
+
+    const selectedShippingOption: SelectedShippingOption = isLocalDestination
+      ? (buildLocalFreeDeliveryOption() as SelectedShippingOption)
+      : rawSelectedShippingOption
 
     if (String(selectedShippingOption.currency || '').toUpperCase() !== 'MXN') {
       return NextResponse.json(
@@ -190,14 +223,6 @@ export async function POST(request: Request) {
     if (!Number.isFinite(shippingCost) || shippingCost < 0) {
       return NextResponse.json(
         { error: 'El costo de envío es inválido' },
-        { status: 400 }
-      )
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: 'Formato de email inválido' },
         { status: 400 }
       )
     }
@@ -377,6 +402,9 @@ export async function POST(request: Request) {
           shippingPostalCode: postalCode,
           shippingState: state,
           shippingCity: city,
+          shippingAddressJson: JSON.stringify(shippingMetadataAddress),
+          shippingQuoteJson: JSON.stringify(selectedShippingOption),
+          cartSnapshot: JSON.stringify(cartSnapshot),
         },
       })
 
