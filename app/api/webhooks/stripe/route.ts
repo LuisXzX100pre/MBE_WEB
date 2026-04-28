@@ -1,3 +1,4 @@
+// app/api/webhooks/stripe/route.ts
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
@@ -11,6 +12,7 @@ import {
   extractShipmentData,
   getStoreOriginAddress,
 } from '@/lib/skydropx'
+import { isLocalFreeDeliveryOption } from '@/lib/local-delivery'
 
 export const runtime = 'nodejs'
 
@@ -79,6 +81,24 @@ function normalizePhone(phone: string | undefined | null) {
   return (phone || '').replace(/[^\d+]/g, '').slice(0, 25)
 }
 
+function isLocalOrder(order: {
+  shippingRateId?: string | null
+  shippingCarrier?: string | null
+  shippingQuoteJson?: unknown
+}) {
+  if (
+    order.shippingRateId === 'mbe-local-benito-juarez-free' ||
+    order.shippingCarrier === 'mbe-local' ||
+    order.shippingCarrier === 'Entrega local MBE'
+  ) {
+    return true
+  }
+
+  return isLocalFreeDeliveryOption(
+    (order.shippingQuoteJson as StoredShippingQuote | null) || null
+  )
+}
+
 async function clearCartForUser(userId: string | undefined | null) {
   if (!userId) return
 
@@ -132,6 +152,10 @@ async function ensureShipmentForOrder(orderId: string) {
     shippingLabelUrl?: string | null
   }
 
+  if (isLocalOrder(order as any)) {
+    return
+  }
+
   if (
     orderAny.skydropxShipmentId ||
     orderAny.shippingTrackingNumber ||
@@ -148,13 +172,13 @@ async function ensureShipmentForOrder(orderId: string) {
   }
 
   if (
-    !order.shippingRecipient ||
+    !order.shippingFullName ||
     !order.shippingPhone ||
     !order.shippingEmail ||
     !order.shippingPostalCode ||
     !order.shippingState ||
     !order.shippingCity ||
-    !order.shippingColony ||
+    !order.shippingNeighborhood ||
     !order.shippingStreet
   ) {
     console.warn(
@@ -167,14 +191,14 @@ async function ensureShipmentForOrder(orderId: string) {
   const addressFrom = getStoreOriginAddress()
 
   const addressTo = buildDestinationAddress({
-    recipient: order.shippingRecipient,
-    company: order.shippingRecipient,
+    recipient: order.shippingFullName,
+    company: order.shippingFullName,
     phone: order.shippingPhone,
     email: order.shippingEmail,
     postalCode: order.shippingPostalCode,
     state: order.shippingState,
     city: order.shippingCity,
-    colony: order.shippingColony,
+    colony: order.shippingNeighborhood,
     street: order.shippingStreet,
     extNumber: order.shippingExtNumber || '',
     intNumber: order.shippingIntNumber || '',
@@ -232,10 +256,10 @@ async function ensureShipmentForOrder(orderId: string) {
         ...(shipmentData.labelUrl ? { shippingLabelUrl: shipmentData.labelUrl } : {}),
         shippingCarrier: shipmentData.carrier || order.shippingCarrier,
         shippingService: shipmentData.service || order.shippingService,
-        shippingDays:
+        shippingEstimatedDays:
           typeof shipmentData.estimatedDays === 'number'
             ? shipmentData.estimatedDays
-            : order.shippingDays,
+            : order.shippingEstimatedDays,
         status: order.status === 'PAID' ? 'PROCESSING' : order.status,
       } as any,
     })
@@ -280,7 +304,7 @@ async function createFallbackOrderFromSucceededPayment(
         status: 'PAID',
 
         shippingAddress: paymentIntent.metadata.shippingAddress || null,
-        shippingRecipient: shippingAddress?.recipient || null,
+        shippingFullName: shippingAddress?.recipient || null,
         shippingPhone: normalizePhone(
           shippingAddress?.phone || paymentIntent.metadata.phoneNumber
         ),
@@ -288,21 +312,22 @@ async function createFallbackOrderFromSucceededPayment(
         shippingPostalCode: shippingAddress?.postalCode || null,
         shippingState: shippingAddress?.state || null,
         shippingCity: shippingAddress?.city || null,
-        shippingColony: shippingAddress?.colony || null,
+        shippingNeighborhood: shippingAddress?.colony || null,
         shippingStreet: shippingAddress?.street || null,
         shippingExtNumber: shippingAddress?.extNumber || null,
         shippingIntNumber: shippingAddress?.intNumber || null,
         shippingReference: shippingAddress?.reference || null,
+        shippingCountry: 'MX',
 
         shippingCarrier:
           shippingQuote?.carrierDisplayName || shippingQuote?.carrier || null,
         shippingService: shippingQuote?.serviceName || null,
         shippingRateId: shippingQuote?.rateId || null,
-        shippingDays:
+        shippingBucket: shippingQuote?.bucket || null,
+        shippingEstimatedDays:
           typeof shippingQuote?.estimatedDays === 'number'
             ? shippingQuote.estimatedDays
             : null,
-        shippingCurrency: shippingQuote?.currency || 'MXN',
         shippingQuoteJson: shippingQuote || undefined,
 
         items: {

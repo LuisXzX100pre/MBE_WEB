@@ -1,3 +1,4 @@
+// app/mis-pedidos/[id]/page.tsx
 import Link from 'next/link'
 import Image from 'next/image'
 import { notFound, redirect } from 'next/navigation'
@@ -49,7 +50,7 @@ function getStatusLabel(status: string) {
     case 'PROCESSING':
       return 'Procesando'
     case 'SHIPPED':
-      return 'Enviado'
+      return 'En camino'
     case 'DELIVERED':
       return 'Entregado'
     case 'CANCELLED':
@@ -97,6 +98,17 @@ function money(value: number | null | undefined) {
   return `${Number(value || 0).toFixed(2)} MXN`
 }
 
+function isLocalDelivery(order: {
+  shippingRateId?: string | null
+  shippingCarrier?: string | null
+}) {
+  return (
+    order.shippingRateId === 'mbe-local-benito-juarez-free' ||
+    order.shippingCarrier === 'mbe-local' ||
+    order.shippingCarrier === 'Entrega local MBE'
+  )
+}
+
 export default async function PedidoDetallePage({
   params,
 }: {
@@ -115,13 +127,8 @@ export default async function PedidoDetallePage({
     notFound()
   }
 
-  const orderAny = order as typeof order & {
-    shippingTrackingNumber?: string | null
-    shippingTrackingUrl?: string | null
-    shippingLabelUrl?: string | null
-  }
-
   const currentStep = getProgressStep(order.status)
+  const localDelivery = isLocalDelivery(order as any)
 
   const shippingLines = order.shippingAddress
     ? order.shippingAddress.split(',').map((line) => line.trim()).filter(Boolean)
@@ -131,7 +138,7 @@ export default async function PedidoDetallePage({
     'Pendiente',
     'Pagado',
     'Procesando',
-    'Enviado',
+    localDelivery ? 'En camino' : 'Enviado',
     'Entregado',
   ]
 
@@ -310,68 +317,94 @@ export default async function PedidoDetallePage({
 
                         {order.shippingCarrier && (
                           <p className="text-sm text-muted-foreground pt-2">
-                            Paquetería: {order.shippingCarrier}
+                            Método: {order.shippingCarrier}
                             {order.shippingService ? ` · ${order.shippingService}` : ''}
                           </p>
                         )}
 
-                        {typeof order.shippingDays === 'number' && (
+                        {typeof order.shippingEstimatedDays === 'number' && !localDelivery && (
                           <p className="text-sm text-muted-foreground">
-                            Estimado: {order.shippingDays} día(s)
+                            Estimado: {order.shippingEstimatedDays} día(s)
+                          </p>
+                        )}
+
+                        {localDelivery && (
+                          <p className="text-sm text-muted-foreground">
+                            Entrega local administrada por MBE.
                           </p>
                         )}
                       </div>
                     </div>
                   </div>
 
-                  {(orderAny.shippingTrackingNumber ||
-                    orderAny.shippingTrackingUrl ||
-                    orderAny.shippingLabelUrl) && (
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                      <div className="flex items-start gap-3">
-                        <Truck className="h-5 w-5 text-muted-foreground mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-sm text-muted-foreground">Seguimiento</p>
+                  {!localDelivery &&
+                    (order.shippingTrackingNumber ||
+                      order.shippingTrackingUrl ||
+                      order.shippingLabelUrl) && (
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                        <div className="flex items-start gap-3">
+                          <Truck className="h-5 w-5 text-muted-foreground mt-0.5" />
+                          <div className="flex-1">
+                            <p className="text-sm text-muted-foreground">Seguimiento</p>
 
-                          {orderAny.shippingTrackingNumber && (
-                            <p className="font-medium mt-1 break-all">
-                              {orderAny.shippingTrackingNumber}
-                            </p>
-                          )}
-
-                          <div className="mt-3 flex flex-wrap gap-3">
-                            {orderAny.shippingTrackingUrl && (
-                              <a
-                                href={orderAny.shippingTrackingUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium hover:bg-white/[0.08]"
-                              >
-                                <ExternalLink className="h-4 w-4" />
-                                Rastrear paquete
-                              </a>
+                            {order.shippingTrackingNumber && (
+                              <p className="font-medium mt-1 break-all">
+                                {order.shippingTrackingNumber}
+                              </p>
                             )}
 
-                            {orderAny.shippingLabelUrl && (
-                              <a
-                                href={orderAny.shippingLabelUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium hover:bg-white/[0.08]"
-                              >
-                                <FileText className="h-4 w-4" />
-                                Ver guía
-                              </a>
-                            )}
+                            <div className="mt-3 flex flex-wrap gap-3">
+                              {order.shippingTrackingUrl && (
+                                <a
+                                  href={order.shippingTrackingUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium hover:bg-white/[0.08]"
+                                >
+                                  <ExternalLink className="h-4 w-4" />
+                                  Rastrear paquete
+                                </a>
+                              )}
+
+                              {order.shippingLabelUrl && (
+                                <a
+                                  href={order.shippingLabelUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium hover:bg-white/[0.08]"
+                                >
+                                  <FileText className="h-4 w-4" />
+                                  Ver guía
+                                </a>
+                              )}
+                            </div>
                           </div>
                         </div>
+                      </div>
+                    )}
+
+                  {localDelivery && order.status !== 'CANCELLED' && (
+                    <div className="flex items-start gap-3">
+                      <Truck className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Seguimiento</p>
+                        <p className="font-medium">
+                          {order.status === 'DELIVERED'
+                            ? 'Tu entrega local ya fue completada.'
+                            : order.status === 'SHIPPED'
+                              ? 'Tu pedido va en camino con entrega local MBE.'
+                              : order.status === 'PROCESSING'
+                                ? 'Estamos preparando tu pedido para entrega local.'
+                                : 'Tu pedido será entregado por MBE dentro de Benito Juárez.'}
+                        </p>
                       </div>
                     </div>
                   )}
 
-                  {!orderAny.shippingTrackingNumber &&
-                    !orderAny.shippingTrackingUrl &&
-                    !orderAny.shippingLabelUrl &&
+                  {!localDelivery &&
+                    !order.shippingTrackingNumber &&
+                    !order.shippingTrackingUrl &&
+                    !order.shippingLabelUrl &&
                     order.status !== 'CANCELLED' && (
                       <div className="flex items-start gap-3">
                         <Package className="h-5 w-5 text-muted-foreground mt-0.5" />

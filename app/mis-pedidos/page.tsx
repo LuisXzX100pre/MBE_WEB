@@ -1,10 +1,11 @@
+// app/mis-pedidos/page.tsx
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Header } from '@/components/store/header'
 import { Footer } from '@/components/store/footer'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { Package, ChevronRight } from 'lucide-react'
+import { Package, ChevronRight, Truck } from 'lucide-react'
 
 async function getUserOrders(userId: string) {
   return prisma.order.findMany({
@@ -64,7 +65,7 @@ function getStatusLabel(status: string) {
     case 'PROCESSING':
       return 'Procesando'
     case 'SHIPPED':
-      return 'Enviado'
+      return 'En camino'
     case 'DELIVERED':
       return 'Entregado'
     case 'CANCELLED':
@@ -72,6 +73,17 @@ function getStatusLabel(status: string) {
     default:
       return status
   }
+}
+
+function isLocalDelivery(order: {
+  shippingRateId?: string | null
+  shippingCarrier?: string | null
+}) {
+  return (
+    order.shippingRateId === 'mbe-local-benito-juarez-free' ||
+    order.shippingCarrier === 'mbe-local' ||
+    order.shippingCarrier === 'Entrega local MBE'
+  )
 }
 
 export default async function MisPedidosPage() {
@@ -106,9 +118,9 @@ export default async function MisPedidosPage() {
               <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-secondary">
                 <Package className="h-8 w-8 text-muted-foreground" />
               </div>
-              <h2 className="text-2xl font-bold mb-3">Aun no tienes pedidos</h2>
+              <h2 className="text-2xl font-bold mb-3">Aún no tienes pedidos</h2>
               <p className="text-muted-foreground mb-6">
-                Cuando completes una compra, tus pedidos apareceran aqui.
+                Cuando completes una compra, tus pedidos aparecerán aquí.
               </p>
               <Link
                 href="/productos"
@@ -122,6 +134,7 @@ export default async function MisPedidosPage() {
               {orders.map((order) => {
                 const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0)
                 const firstItems = order.items.slice(0, 3).map((item) => item.product.name)
+                const localDelivery = isLocalDelivery(order as any)
 
                 return (
                   <Link
@@ -142,6 +155,13 @@ export default async function MisPedidosPage() {
                           >
                             {getStatusLabel(order.status)}
                           </span>
+
+                          {localDelivery && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-muted-foreground">
+                              <Truck className="h-3.5 w-3.5" />
+                              Entrega local MBE
+                            </span>
+                          )}
                         </div>
 
                         <p className="text-sm text-muted-foreground mb-3">
@@ -160,7 +180,7 @@ export default async function MisPedidosPage() {
                           ))}
                           {order.items.length > 3 && (
                             <p className="text-sm text-muted-foreground">
-                              y {order.items.length - 3} producto(s) mas...
+                              y {order.items.length - 3} producto(s) más...
                             </p>
                           )}
                         </div>
@@ -176,7 +196,7 @@ export default async function MisPedidosPage() {
                           </div>
                           <div>
                             <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground mb-1">
-                              Articulos
+                              Artículos
                             </p>
                             <p className="text-lg font-black">{totalItems}</p>
                           </div>

@@ -4,18 +4,43 @@ import { prisma } from '@/lib/prisma'
 import { isAdmin } from '@/lib/auth'
 import { syncInventoryByStatus } from '@/lib/inventory'
 
+const VALID_STATUSES = [
+  'PENDING',
+  'CONFIRMED',
+  'PAID',
+  'PROCESSING',
+  'SHIPPED',
+  'DELIVERED',
+  'CANCELLED',
+] as const
+
+type OrderStatusValue = (typeof VALID_STATUSES)[number]
+
+function isValidStatus(value: string): value is OrderStatusValue {
+  return VALID_STATUSES.includes(value as OrderStatusValue)
+}
+
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const admin = await isAdmin()
+
   if (!admin) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
   }
 
   try {
     const { id } = await params
-    const { status } = await request.json()
+    const body = await request.json()
+    const status = String(body?.status ?? '').trim().toUpperCase()
+
+    if (!isValidStatus(status)) {
+      return NextResponse.json(
+        { error: 'Estado de orden inválido' },
+        { status: 400 }
+      )
+    }
 
     const currentOrder = await prisma.order.findUnique({
       where: { id },
@@ -40,7 +65,15 @@ export async function PUT(
     const freshOrder = await prisma.order.findUnique({
       where: { id },
       include: {
-        items: true,
+        items: {
+          include: {
+            product: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
         payment: true,
         user: {
           select: {
@@ -54,6 +87,7 @@ export async function PUT(
     return NextResponse.json({ order: freshOrder ?? order })
   } catch (error) {
     console.error('Error updating order:', error)
+
     return NextResponse.json(
       {
         error:
@@ -71,6 +105,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const admin = await isAdmin()
+
   if (!admin) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
   }
@@ -101,7 +136,7 @@ export async function DELETE(
       return NextResponse.json(
         {
           error:
-            'No puedes eliminar una orden cancelada que aun tiene inventario descontado',
+            'No puedes eliminar una orden cancelada que aún tiene inventario descontado',
         },
         { status: 400 }
       )
@@ -114,6 +149,7 @@ export async function DELETE(
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error deleting order:', error)
+
     return NextResponse.json(
       { error: 'Error al eliminar orden' },
       { status: 500 }
