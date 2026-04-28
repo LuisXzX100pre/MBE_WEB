@@ -1,6 +1,6 @@
 // app/admin/ordenes/page.tsx
 import { prisma } from '@/lib/prisma'
-import { OrdersTable } from '@/components/admin/orders-table'
+import { OrdersPremiumManager } from '@/components/admin/orders-premium-manager'
 
 async function getOrders() {
   return prisma.order.findMany({
@@ -46,13 +46,13 @@ export default async function AdminOrdersPage() {
   return (
     <div>
       <div className="mb-8">
-        <p className="text-xs uppercase tracking-[0.26em] text-muted-foreground mb-2">
+        <p className="mb-2 text-xs uppercase tracking-[0.26em] text-muted-foreground">
           Administración
         </p>
         <h1 className="text-3xl font-bold">Órdenes</h1>
       </div>
 
-      <OrdersTable orders={orders as any} />
+      <OrdersPremiumManager orders={orders as any} />
     </div>
   )
 }
