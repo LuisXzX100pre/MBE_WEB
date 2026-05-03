@@ -18,7 +18,7 @@ export function Footer() {
   return (
     <footer className="border-t border-border bg-card">
       <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
           <div className="md:col-span-2">
             <h3 className="mb-4 text-2xl font-bold tracking-tighter">MBE</h3>
 
@@ -69,39 +69,6 @@ export function Footer() {
                   className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                 >
                   Categorías
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="mb-4 font-medium">Info</h4>
-
-            <ul className="space-y-2">
-              <li>
-                <Link
-                  href="#"
-                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  Envíos
-                </Link>
-              </li>
-
-              <li>
-                <Link
-                  href="#"
-                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  Devoluciones
-                </Link>
-              </li>
-
-              <li>
-                <Link
-                  href="#"
-                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  Contacto
                 </Link>
               </li>
             </ul>
