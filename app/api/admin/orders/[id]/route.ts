@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { isAdmin } from '@/lib/auth'
 import { syncInventoryByStatus } from '@/lib/inventory'
+import { sendOrderStatusNotifications } from '@/lib/order-status-notifications'
 
 const VALID_STATUSES = [
   'PENDING',
@@ -62,6 +63,12 @@ export async function PUT(
 
     await syncInventoryByStatus(id, status)
 
+    await sendOrderStatusNotifications({
+      orderId: id,
+      previousStatus: currentOrder.status,
+      nextStatus: status,
+    })
+
     const freshOrder = await prisma.order.findUnique({
       where: { id },
       include: {
@@ -79,6 +86,8 @@ export async function PUT(
           select: {
             id: true,
             username: true,
+            email: true,
+            phone: true,
           },
         },
       },

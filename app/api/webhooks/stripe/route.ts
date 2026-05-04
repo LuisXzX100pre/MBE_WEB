@@ -12,7 +12,7 @@ import {
   extractShipmentData,
   getStoreOriginAddress,
 } from '@/lib/skydropx'
-import { isLocalFreeDeliveryOption } from '@/lib/local-delivery'
+import { sendOrderStatusNotifications } from '@/lib/order-status-notifications'
 
 export const runtime = 'nodejs'
 
@@ -63,7 +63,7 @@ function parseJson<T>(raw: string | undefined | null): T | null {
   }
 }
 
-function parseCartSnapshot(raw: string | undefined): StoredCartItem[] {
+function parseCartSnapshot(raw: string | undefined) {
   const parsed = parseJson<StoredCartItem[]>(raw)
 
   if (!Array.isArray(parsed)) return []
@@ -94,8 +94,11 @@ function isLocalOrder(order: {
     return true
   }
 
-  return isLocalFreeDeliveryOption(
-    (order.shippingQuoteJson as StoredShippingQuote | null) || null
+  const quote = order.shippingQuoteJson as StoredShippingQuote | null
+
+  return (
+    quote?.rateId === 'mbe-local-benito-juarez-free' ||
+    quote?.carrier === 'mbe-local'
   )
 }
 
@@ -144,16 +147,13 @@ async function ensureShipmentForOrder(orderId: string) {
   })
 
   if (!order) return
+  if (isLocalOrder(order as any)) return
 
   const orderAny = order as typeof order & {
     skydropxShipmentId?: string | null
     shippingTrackingNumber?: string | null
     shippingTrackingUrl?: string | null
     shippingLabelUrl?: string | null
-  }
-
-  if (isLocalOrder(order as any)) {
-    return
   }
 
   if (
@@ -240,6 +240,7 @@ async function ensureShipmentForOrder(orderId: string) {
     })
 
     const shipmentData = extractShipmentData(shipment)
+    const nextStatus = order.status === 'PAID' ? 'PROCESSING' : order.status
 
     await prisma.order.update({
       where: { id: orderId },
@@ -260,9 +261,17 @@ async function ensureShipmentForOrder(orderId: string) {
           typeof shipmentData.estimatedDays === 'number'
             ? shipmentData.estimatedDays
             : order.shippingEstimatedDays,
-        status: order.status === 'PAID' ? 'PROCESSING' : order.status,
+        status: nextStatus,
       } as any,
     })
+
+    if (order.status !== nextStatus) {
+      await sendOrderStatusNotifications({
+        orderId,
+        previousStatus: order.status,
+        nextStatus,
+      })
+    }
   } catch (error) {
     console.error('[stripe:webhook:shipment]', error)
   }
@@ -364,6 +373,11 @@ async function createFallbackOrderFromSucceededPayment(
 
   await clearCartForUser(userId)
   await syncInventoryByStatus(order.id, 'PAID')
+  await sendOrderStatusNotifications({
+    orderId: order.id,
+    previousStatus: 'PENDING',
+    nextStatus: 'PAID',
+  })
   await ensureShipmentForOrder(order.id)
 
   return order.id
@@ -378,6 +392,8 @@ async function handleSucceeded(paymentIntent: Stripe.PaymentIntent) {
     await createFallbackOrderFromSucceededPayment(paymentIntent)
     return
   }
+
+  const previousStatus = existingPayment.order.status
 
   await prisma.$transaction(async (tx) => {
     await tx.payment.update({
@@ -397,7 +413,7 @@ async function handleSucceeded(paymentIntent: Stripe.PaymentIntent) {
       },
     })
 
-    if (existingPayment.order.status !== 'PAID') {
+    if (previousStatus !== 'PAID') {
       await tx.order.update({
         where: { id: existingPayment.orderId },
         data: { status: 'PAID' },
@@ -407,6 +423,15 @@ async function handleSucceeded(paymentIntent: Stripe.PaymentIntent) {
 
   await clearCartForUser(existingPayment.order.userId)
   await syncInventoryByStatus(existingPayment.orderId, 'PAID')
+
+  if (previousStatus !== 'PAID') {
+    await sendOrderStatusNotifications({
+      orderId: existingPayment.orderId,
+      previousStatus,
+      nextStatus: 'PAID',
+    })
+  }
+
   await ensureShipmentForOrder(existingPayment.orderId)
 }
 
@@ -415,28 +440,51 @@ async function handleProcessing(paymentIntent: Stripe.PaymentIntent) {
 
   if (!existingPayment) return
 
-  await prisma.payment.update({
-    where: { id: existingPayment.id },
-    data: {
-      provider: 'stripe',
-      status: 'PENDING',
-      paymentIntentId: paymentIntent.id,
-      paymentMethodId:
-        typeof paymentIntent.payment_method === 'string'
-          ? paymentIntent.payment_method
-          : paymentIntent.payment_method?.id,
-      payerEmail:
-        paymentIntent.receipt_email || paymentIntent.metadata.email || null,
-      receiptEmail:
-        paymentIntent.receipt_email || paymentIntent.metadata.email || null,
-    },
+  const previousStatus = existingPayment.order.status
+  const nextStatus = previousStatus === 'PENDING' ? 'CONFIRMED' : previousStatus
+
+  await prisma.$transaction(async (tx) => {
+    await tx.payment.update({
+      where: { id: existingPayment.id },
+      data: {
+        provider: 'stripe',
+        status: 'PENDING',
+        paymentIntentId: paymentIntent.id,
+        paymentMethodId:
+          typeof paymentIntent.payment_method === 'string'
+            ? paymentIntent.payment_method
+            : paymentIntent.payment_method?.id,
+        payerEmail:
+          paymentIntent.receipt_email || paymentIntent.metadata.email || null,
+        receiptEmail:
+          paymentIntent.receipt_email || paymentIntent.metadata.email || null,
+      },
+    })
+
+    if (previousStatus !== nextStatus) {
+      await tx.order.update({
+        where: { id: existingPayment.orderId },
+        data: { status: nextStatus },
+      })
+    }
   })
+
+  if (previousStatus !== nextStatus) {
+    await sendOrderStatusNotifications({
+      orderId: existingPayment.orderId,
+      previousStatus,
+      nextStatus,
+    })
+  }
 }
 
 async function handleFailedOrCanceled(paymentIntent: Stripe.PaymentIntent) {
   const existingPayment = await findExistingPaymentFromIntent(paymentIntent)
 
   if (!existingPayment) return
+
+  const previousStatus = existingPayment.order.status
+  let didCancelOrder = false
 
   await prisma.$transaction(async (tx) => {
     await tx.payment.update({
@@ -461,15 +509,24 @@ async function handleFailedOrCanceled(paymentIntent: Stripe.PaymentIntent) {
     })
 
     if (
-      ['PENDING', 'CONFIRMED'].includes(existingPayment.order.status) &&
+      ['PENDING', 'CONFIRMED'].includes(previousStatus) &&
       !existingPayment.order.inventoryDiscounted
     ) {
       await tx.order.update({
         where: { id: existingPayment.orderId },
         data: { status: 'CANCELLED' },
       })
+      didCancelOrder = true
     }
   })
+
+  if (didCancelOrder) {
+    await sendOrderStatusNotifications({
+      orderId: existingPayment.orderId,
+      previousStatus,
+      nextStatus: 'CANCELLED',
+    })
+  }
 }
 
 function eventCouldBeFinal(status: Stripe.PaymentIntent.Status) {
