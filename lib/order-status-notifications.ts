@@ -1,5 +1,3 @@
-// lib/order-status-notifications.ts
-
 import { prisma } from '@/lib/prisma'
 import { Resend } from 'resend'
 import twilio from 'twilio'
@@ -15,17 +13,22 @@ const twilioClient =
 
 function maskEmail(email: string | null | undefined) {
   if (!email) return null
+
   const [name, domain] = email.split('@')
   if (!domain) return email
+
   const safeName =
     name.length <= 2 ? `${name[0] ?? '*'}*` : `${name.slice(0, 2)}***`
+
   return `${safeName}@${domain}`
 }
 
 function maskPhone(phone: string | null | undefined) {
   if (!phone) return null
+
   const digits = phone.replace(/\D/g, '')
   if (digits.length <= 4) return phone
+
   return `***${digits.slice(-4)}`
 }
 
@@ -107,7 +110,6 @@ export async function sendOrderStatusNotifications(input: {
     hasTwilioMessagingServiceSid: Boolean(
       process.env.TWILIO_MESSAGING_SERVICE_SID
     ),
-    appUrl: process.env.APP_URL || null,
     vercelEnv: process.env.VERCEL_ENV || null,
   })
 
@@ -178,13 +180,12 @@ export async function sendOrderStatusNotifications(input: {
     orderId: order.id,
     emailSource,
     phoneSource,
-    rawPhone: maskPhone(rawPhone),
+    shippingPhone: maskPhone(order.shippingPhone),
+    userPhone: maskPhone(order.user?.phone),
+    rawPhoneChosen: maskPhone(rawPhone),
     normalizedPhone: maskPhone(recipientPhone),
     recipientEmail: maskEmail(recipientEmail),
     localDelivery,
-    shippingCarrier: order.shippingCarrier || null,
-    shippingService: order.shippingService || null,
-    shippingTrackingNumber: order.shippingTrackingNumber || null,
   })
 
   const messages = getOrderStatusMessages({
@@ -259,6 +260,7 @@ export async function sendOrderStatusNotifications(input: {
     try {
       console.log('[notifications:sms:attempt]', {
         orderId: order.id,
+        phoneSource,
         to: maskPhone(recipientPhone),
         messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID,
         status: nextStatus,
@@ -272,6 +274,7 @@ export async function sendOrderStatusNotifications(input: {
 
       console.log('[notifications:sms:success]', {
         orderId: order.id,
+        phoneSource,
         to: maskPhone(recipientPhone),
         sid: sms.sid,
         status: sms.status,
@@ -283,6 +286,7 @@ export async function sendOrderStatusNotifications(input: {
     } catch (error) {
       console.error('[notifications:sms:failed]', {
         orderId: order.id,
+        phoneSource,
         to: maskPhone(recipientPhone),
         twilio: extractTwilioError(error),
       })
@@ -292,10 +296,13 @@ export async function sendOrderStatusNotifications(input: {
   } else {
     console.log('[notifications:sms:skip]', {
       orderId: order.id,
+      phoneSource,
       hasTwilioClient: Boolean(twilioClient),
       hasMessagingServiceSid: Boolean(process.env.TWILIO_MESSAGING_SERVICE_SID),
       hasRecipientPhone: Boolean(recipientPhone),
-      rawPhone: maskPhone(rawPhone),
+      shippingPhone: maskPhone(order.shippingPhone),
+      userPhone: maskPhone(order.user?.phone),
+      rawPhoneChosen: maskPhone(rawPhone),
       normalizedPhone: maskPhone(recipientPhone),
     })
 
