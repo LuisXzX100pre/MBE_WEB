@@ -49,7 +49,7 @@ function getStatusLabel(status: string) {
 function buildHeadline(ctx: OrderStatusMessageContext) {
   switch (ctx.status) {
     case 'PENDING':
-      return 'Recibimos tu pedido y está pendiente.'
+      return 'Recibimos tu pedido y esta pendiente.'
     case 'CONFIRMED':
       return 'Tu pedido fue confirmado y estamos validando el pago.'
     case 'PAID':
@@ -76,16 +76,16 @@ function buildHeadline(ctx: OrderStatusMessageContext) {
 function buildExtra(ctx: OrderStatusMessageContext) {
   if (ctx.status === 'SHIPPED' && !ctx.isLocalDelivery) {
     const tracking = ctx.shippingTrackingNumber
-      ? `Número de rastreo: ${ctx.shippingTrackingNumber}.`
+      ? `Numero de rastreo: ${ctx.shippingTrackingNumber}.`
       : ''
     const carrier = ctx.shippingCarrier || ctx.shippingService
-      ? `Paquetería: ${ctx.shippingCarrier || ''}${ctx.shippingService ? ` · ${ctx.shippingService}` : ''}.`
+      ? `Paqueteria: ${ctx.shippingCarrier || ''}${ctx.shippingService ? ` · ${ctx.shippingService}` : ''}.`
       : ''
     return [carrier, tracking].filter(Boolean).join(' ')
   }
 
   if (ctx.status === 'SHIPPED' && ctx.isLocalDelivery) {
-    return 'Nuestro equipo local lo lleva hacia ti dentro de Benito Juárez, Quintana Roo.'
+    return 'Nuestro equipo local lo lleva hacia ti dentro de Benito Juarez, Quintana Roo.'
   }
 
   if (ctx.status === 'PROCESSING' && ctx.isLocalDelivery) {
@@ -97,10 +97,36 @@ function buildExtra(ctx: OrderStatusMessageContext) {
   }
 
   if (ctx.status === 'CANCELLED') {
-    return 'Si tienes dudas, contáctanos para revisar tu caso.'
+    return 'Si tienes dudas, contactanos para revisar tu caso.'
   }
 
   return ''
+}
+
+function buildShortSms(ctx: OrderStatusMessageContext, orderUrl: string) {
+  const id = shortOrderId(ctx.orderId)
+  const link = orderUrl ? ` ${orderUrl}` : ''
+
+  switch (ctx.status) {
+    case 'PENDING':
+      return `MBE ${id} pendiente.${link}`
+    case 'CONFIRMED':
+      return `MBE ${id} confirmado.${link}`
+    case 'PAID':
+      return `MBE ${id} pagado.${link}`
+    case 'PROCESSING':
+      return `MBE ${id} en preparacion.${link}`
+    case 'SHIPPED':
+      return ctx.isLocalDelivery
+        ? `MBE ${id} en camino.${link}`
+        : `MBE ${id} enviado.${link}`
+    case 'DELIVERED':
+      return `MBE ${id} entregado.${link}`
+    case 'CANCELLED':
+      return `MBE ${id} cancelado.${link}`
+    default:
+      return `MBE ${id} actualizado.${link}`
+  }
 }
 
 export function getOrderStatusMessages(ctx: OrderStatusMessageContext) {
@@ -123,20 +149,14 @@ export function getOrderStatusMessages(ctx: OrderStatusMessageContext) {
     .filter(Boolean)
     .join('\n')
 
-  const sms = [
-    `MBE: ${headline}`,
-    extra,
-    orderUrl ? `Pedido: ${orderUrl}` : '',
-  ]
-    .filter(Boolean)
-    .join(' ')
+  const sms = buildShortSms(ctx, orderUrl)
 
   const html = `
     <div style="background:#050505;padding:32px 20px;font-family:Arial,Helvetica,sans-serif;color:#ffffff;">
       <div style="max-width:640px;margin:0 auto;background:#0f0f10;border:1px solid rgba(255,255,255,0.08);border-radius:20px;overflow:hidden;">
         <div style="padding:28px 28px 18px;border-bottom:1px solid rgba(255,255,255,0.08);">
           <div style="font-size:12px;letter-spacing:0.35em;text-transform:uppercase;color:rgba(255,255,255,0.45);">MBE</div>
-          <h1 style="margin:14px 0 8px;font-size:28px;line-height:1.1;color:#ffffff;">Actualización de tu pedido</h1>
+          <h1 style="margin:14px 0 8px;font-size:28px;line-height:1.1;color:#ffffff;">Actualizacion de tu pedido</h1>
           <p style="margin:0;color:rgba(255,255,255,0.65);font-size:15px;">
             Pedido #${escapeHtml(shortOrderId(ctx.orderId))}
           </p>
@@ -180,7 +200,7 @@ export function getOrderStatusMessages(ctx: OrderStatusMessageContext) {
           }
 
           <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:rgba(255,255,255,0.48);">
-            Este mensaje fue enviado automáticamente por MBE para mantenerte al tanto del estado de tu compra.
+            Este mensaje fue enviado automaticamente por MBE para mantenerte al tanto del estado de tu compra.
           </p>
         </div>
       </div>
