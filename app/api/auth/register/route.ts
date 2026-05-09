@@ -1,6 +1,13 @@
+// app/api/auth/register/route.ts
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { hashPassword } from '@/lib/auth'
+import {
+  checkRateLimit,
+  getClientIp,
+  normalizeRateKey,
+  tooManyRequestsResponse,
+} from '@/lib/rate-limit'
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
@@ -32,6 +39,37 @@ export async function POST(request: Request) {
         { error: 'Usuario, correo, teléfono y contraseña son requeridos' },
         { status: 400 }
       )
+    }
+
+    if (username.length > 24 || email.length > 120 || phone.length > 15 || password.length > 256) {
+      return NextResponse.json(
+        { error: 'Datos inválidos' },
+        { status: 400 }
+      )
+    }
+
+    const clientIp = getClientIp(request)
+
+    const ipLimit = checkRateLimit({
+      namespace: 'auth:register:ip',
+      key: clientIp,
+      limit: 5,
+      windowMs: 60 * 60 * 1000,
+    })
+
+    if (!ipLimit.allowed) {
+      return tooManyRequestsResponse(ipLimit.retryAfterSec)
+    }
+
+    const identityLimit = checkRateLimit({
+      namespace: 'auth:register:identity',
+      key: normalizeRateKey(`${email}:${username}`),
+      limit: 3,
+      windowMs: 60 * 60 * 1000,
+    })
+
+    if (!identityLimit.allowed) {
+      return tooManyRequestsResponse(identityLimit.retryAfterSec)
     }
 
     if (!isValidUsername(username)) {

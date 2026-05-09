@@ -1,6 +1,13 @@
+// app/api/auth/reset-password/route.ts
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { hashPassword, hashTextToken } from '@/lib/auth'
+import {
+  checkRateLimit,
+  getClientIp,
+  normalizeRateKey,
+  tooManyRequestsResponse,
+} from '@/lib/rate-limit'
 
 function isStrongPassword(password: string) {
   return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/.test(password)
@@ -19,6 +26,37 @@ export async function POST(request: Request) {
         { error: 'Token, contraseña y confirmación son requeridos' },
         { status: 400 }
       )
+    }
+
+    if (token.length > 256 || password.length > 256 || confirmPassword.length > 256) {
+      return NextResponse.json(
+        { error: 'Datos inválidos' },
+        { status: 400 }
+      )
+    }
+
+    const clientIp = getClientIp(request)
+
+    const ipLimit = checkRateLimit({
+      namespace: 'auth:reset:ip',
+      key: clientIp,
+      limit: 10,
+      windowMs: 60 * 60 * 1000,
+    })
+
+    if (!ipLimit.allowed) {
+      return tooManyRequestsResponse(ipLimit.retryAfterSec)
+    }
+
+    const tokenLimit = checkRateLimit({
+      namespace: 'auth:reset:token',
+      key: normalizeRateKey(token.slice(0, 64)),
+      limit: 5,
+      windowMs: 60 * 60 * 1000,
+    })
+
+    if (!tokenLimit.allowed) {
+      return tooManyRequestsResponse(tokenLimit.retryAfterSec)
     }
 
     if (!isStrongPassword(password)) {

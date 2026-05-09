@@ -1,7 +1,14 @@
+// app/api/auth/login/route.ts
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyPassword, createToken } from '@/lib/auth'
 import { cookies } from 'next/headers'
+import {
+  checkRateLimit,
+  getClientIp,
+  normalizeRateKey,
+  tooManyRequestsResponse,
+} from '@/lib/rate-limit'
 
 export async function POST(request: Request) {
   try {
@@ -18,6 +25,38 @@ export async function POST(request: Request) {
         { error: 'Usuario o correo y contraseña son requeridos' },
         { status: 400 }
       )
+    }
+
+    if (identifier.length > 120 || password.length > 256) {
+      return NextResponse.json(
+        { error: 'Datos inválidos' },
+        { status: 400 }
+      )
+    }
+
+    const clientIp = getClientIp(request)
+    const normalizedIdentifier = normalizeRateKey(identifier)
+
+    const ipLimit = checkRateLimit({
+      namespace: 'auth:login:ip',
+      key: clientIp,
+      limit: 10,
+      windowMs: 10 * 60 * 1000,
+    })
+
+    if (!ipLimit.allowed) {
+      return tooManyRequestsResponse(ipLimit.retryAfterSec)
+    }
+
+    const identifierLimit = checkRateLimit({
+      namespace: 'auth:login:identifier',
+      key: normalizedIdentifier,
+      limit: 8,
+      windowMs: 10 * 60 * 1000,
+    })
+
+    if (!identifierLimit.allowed) {
+      return tooManyRequestsResponse(identifierLimit.retryAfterSec)
     }
 
     const normalizedEmail = identifier.toLowerCase()
@@ -51,7 +90,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Credenciales incorrectas' }, { status: 401 })
     }
 
-    const token = await createToken(user.id)
+    const token = await createToken(user.id, user.role, user.username)
 
     const cookieStore = await cookies()
     cookieStore.set('token', token, {

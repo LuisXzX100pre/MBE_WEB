@@ -1,7 +1,14 @@
+// app/api/auth/forgot-password/route.ts
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { generatePasswordResetToken } from '@/lib/auth'
 import { Resend } from 'resend'
+import {
+  checkRateLimit,
+  getClientIp,
+  normalizeRateKey,
+  tooManyRequestsResponse,
+} from '@/lib/rate-limit'
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -18,6 +25,34 @@ export async function POST(request: Request) {
 
     if (!email || !isValidEmail(email)) {
       return NextResponse.json({ error: 'Ingresa un correo válido' }, { status: 400 })
+    }
+
+    if (email.length > 120) {
+      return NextResponse.json({ error: 'Ingresa un correo válido' }, { status: 400 })
+    }
+
+    const clientIp = getClientIp(request)
+
+    const ipLimit = checkRateLimit({
+      namespace: 'auth:forgot:ip',
+      key: clientIp,
+      limit: 5,
+      windowMs: 60 * 60 * 1000,
+    })
+
+    if (!ipLimit.allowed) {
+      return tooManyRequestsResponse(ipLimit.retryAfterSec)
+    }
+
+    const emailLimit = checkRateLimit({
+      namespace: 'auth:forgot:email',
+      key: normalizeRateKey(email),
+      limit: 3,
+      windowMs: 60 * 60 * 1000,
+    })
+
+    if (!emailLimit.allowed) {
+      return tooManyRequestsResponse(emailLimit.retryAfterSec)
     }
 
     const genericMessage =
