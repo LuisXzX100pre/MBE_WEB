@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { useCart } from '@/contexts/cart-context'
-import { ShoppingBag, User, Menu, X, LogOut, Package } from 'lucide-react'
+import { ShoppingBag, User, Menu, X, LogOut, Package, ArrowRight } from 'lucide-react'
 import { CartSheet } from './cart-sheet'
 
 export function Header() {
@@ -22,7 +22,7 @@ export function Header() {
   }, [pathname])
 
   useEffect(() => {
-    if (mobileMenuOpen) {
+    if (mobileMenuOpen || showCart) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = ''
@@ -31,7 +31,11 @@ export function Header() {
     return () => {
       document.body.style.overflow = ''
     }
-  }, [mobileMenuOpen])
+  }, [mobileMenuOpen, showCart])
+
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false)
+  }
 
   return (
     <>
@@ -40,7 +44,7 @@ export function Header() {
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center shrink-0">
+          <Link href="/" className="flex shrink-0 items-center" onClick={closeMobileMenu}>
             <Image
               src="/logo.png"
               alt="MBE Logo"
@@ -52,32 +56,35 @@ export function Header() {
           </Link>
 
           {user && (
-            <div className="pointer-events-none md:hidden absolute left-1/2 -translate-x-1/2">
-              <span className="max-w-[120px] truncate text-sm font-extrabold tracking-tight text-white">
+            <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 md:hidden">
+              <span className="block max-w-[120px] truncate text-sm font-extrabold tracking-tight text-white">
                 {user.username}
               </span>
             </div>
           )}
 
-          <nav className="hidden md:flex items-center gap-8">
+          <nav className="hidden items-center gap-8 md:flex">
             <Link
               href="/"
               className="text-sm font-black tracking-tight text-muted-foreground transition-colors hover:text-foreground"
             >
               Inicio
             </Link>
+
             <Link
               href="/productos"
               className="text-sm font-black tracking-tight text-muted-foreground transition-colors hover:text-foreground"
             >
               Productos
             </Link>
+
             <Link
               href="/categorias"
               className="text-sm font-black tracking-tight text-muted-foreground transition-colors hover:text-foreground"
             >
               Categorias
             </Link>
+
             <Link
               href="/nosotros"
               className="text-sm font-black tracking-tight text-muted-foreground transition-colors hover:text-foreground"
@@ -88,7 +95,7 @@ export function Header() {
 
           <div className="flex items-center gap-1 sm:gap-2">
             {user ? (
-              <div className="hidden md:flex items-center gap-4">
+              <div className="hidden items-center gap-4 md:flex">
                 <span className="max-w-[140px] truncate text-sm text-muted-foreground">
                   {user.username}
                 </span>
@@ -121,7 +128,7 @@ export function Header() {
             ) : (
               <Link
                 href="/login"
-                className="hidden md:flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                className="hidden items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground md:flex"
               >
                 <User className="h-5 w-5" />
                 <span>Iniciar sesion</span>
@@ -146,7 +153,7 @@ export function Header() {
 
             <button
               onClick={() => setMobileMenuOpen((prev) => !prev)}
-              className="md:hidden rounded-full p-2 text-muted-foreground transition-colors hover:text-foreground"
+              className="rounded-full p-2 text-muted-foreground transition-colors hover:text-foreground md:hidden"
               aria-label={mobileMenuOpen ? 'Cerrar menu' : 'Abrir menu'}
             >
               {mobileMenuOpen ? (
@@ -161,42 +168,42 @@ export function Header() {
 
       {mobileMenuOpen && (
         <div
-          className="fixed inset-x-0 bottom-0 z-[70] md:hidden overflow-y-auto bg-[#050505]"
+          className="fixed inset-x-0 bottom-0 z-[70] overflow-y-auto bg-[#050505] md:hidden"
           style={{
             top: 'calc(env(safe-area-inset-top, 0px) + 4rem)',
             paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.5rem)',
           }}
         >
-          <div className="mx-auto flex min-h-full max-w-7xl flex-col px-5 py-6">
-            <nav className="flex flex-col gap-5 border-b border-white/10 pb-6">
+          <div className="mx-auto flex min-h-full max-w-7xl flex-col px-5 py-7">
+            <nav className="flex flex-col gap-5 border-b border-white/10 pb-7">
               <Link
                 href="/"
-                className="text-[15px] font-extrabold tracking-tight text-foreground"
-                onClick={() => setMobileMenuOpen(false)}
+                className="text-[16px] font-extrabold tracking-tight text-foreground"
+                onClick={closeMobileMenu}
               >
                 Inicio
               </Link>
 
               <Link
                 href="/productos"
-                className="text-[15px] font-extrabold tracking-tight text-foreground"
-                onClick={() => setMobileMenuOpen(false)}
+                className="text-[16px] font-extrabold tracking-tight text-foreground"
+                onClick={closeMobileMenu}
               >
                 Productos
               </Link>
 
               <Link
                 href="/categorias"
-                className="text-[15px] font-extrabold tracking-tight text-foreground"
-                onClick={() => setMobileMenuOpen(false)}
+                className="text-[16px] font-extrabold tracking-tight text-foreground"
+                onClick={closeMobileMenu}
               >
                 Categorias
               </Link>
 
               <Link
                 href="/nosotros"
-                className="text-[15px] font-extrabold tracking-tight text-foreground"
-                onClick={() => setMobileMenuOpen(false)}
+                className="text-[16px] font-extrabold tracking-tight text-foreground"
+                onClick={closeMobileMenu}
               >
                 Nosotros
               </Link>
@@ -205,8 +212,8 @@ export function Header() {
                 <>
                   <Link
                     href="/mis-pedidos"
-                    className="text-[15px] text-muted-foreground transition-colors hover:text-foreground"
-                    onClick={() => setMobileMenuOpen(false)}
+                    className="text-[16px] text-muted-foreground transition-colors hover:text-foreground"
+                    onClick={closeMobileMenu}
                   >
                     Mis pedidos
                   </Link>
@@ -214,8 +221,8 @@ export function Header() {
                   {user.role === 'ADMIN' && (
                     <Link
                       href="/admin"
-                      className="text-[15px] text-muted-foreground transition-colors hover:text-foreground"
-                      onClick={() => setMobileMenuOpen(false)}
+                      className="text-[16px] text-muted-foreground transition-colors hover:text-foreground"
+                      onClick={closeMobileMenu}
                     >
                       Admin
                     </Link>
@@ -224,9 +231,9 @@ export function Header() {
                   <button
                     onClick={() => {
                       logout()
-                      setMobileMenuOpen(false)
+                      closeMobileMenu()
                     }}
-                    className="text-left text-[15px] text-muted-foreground transition-colors hover:text-foreground"
+                    className="text-left text-[16px] text-muted-foreground transition-colors hover:text-foreground"
                   >
                     Cerrar sesion
                   </button>
@@ -234,49 +241,35 @@ export function Header() {
               ) : (
                 <Link
                   href="/login"
-                  className="text-[15px] text-muted-foreground transition-colors hover:text-foreground"
-                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-[16px] text-muted-foreground transition-colors hover:text-foreground"
+                  onClick={closeMobileMenu}
                 >
                   Iniciar sesion
                 </Link>
               )}
             </nav>
 
-            <div className="pt-8">
-              <div className="mb-5 flex items-center justify-between">
-                <h3 className="text-2xl font-black tracking-tight text-white">
-                  Ultimos productos
-                </h3>
-                <Link
-                  href="/productos"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="text-sm text-muted-foreground transition-colors hover:text-white"
-                >
-                  Ver todos →
-                </Link>
-              </div>
+            <div className="mt-7 rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-5">
+              <p className="text-xs uppercase tracking-[0.28em] text-muted-foreground">
+                MBE Store
+              </p>
 
-              <div className="grid grid-cols-1 gap-4">
-                <Link
-                  href="/productos"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="rounded-3xl border border-white/10 bg-card p-4 transition-colors hover:border-white/20"
-                >
-                  <div className="relative mb-3 aspect-[4/5] overflow-hidden rounded-2xl bg-secondary">
-                    <Image
-                      src="/uploads/product-1775785956506-tt1n17.jpeg"
-                      alt="MBE producto"
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                  <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                    Camisetas
-                  </p>
-                  <p className="mt-2 text-lg font-black text-white">MBE 1</p>
-                  <p className="mt-1 text-xl font-black text-white">$10.00 MXN</p>
-                </Link>
-              </div>
+              <h3 className="mt-3 text-2xl font-black tracking-tight text-white">
+                Explora la colección
+              </h3>
+
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                Entra a productos para ver las piezas reales disponibles, próximos drops y artículos activos de la tienda.
+              </p>
+
+              <Link
+                href="/productos"
+                onClick={closeMobileMenu}
+                className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white px-5 py-3 text-sm font-black text-black transition-all hover:scale-[1.02] hover:bg-white/90"
+              >
+                Ver productos
+                <ArrowRight className="h-4 w-4" />
+              </Link>
             </div>
           </div>
         </div>
