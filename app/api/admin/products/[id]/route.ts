@@ -1,9 +1,25 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
-import { ProductStatus, Size } from '@prisma/client'
+import type { ProductStatus, Size } from '@prisma/client'
 
 const SIZES: Size[] = ['S', 'M', 'L', 'XL']
+
+type RouteContext = {
+  params: Promise<{
+    id: string
+  }>
+}
+
+type NormalizedSize = {
+  size: Size
+  stock: number
+}
+
+type IncomingSize = {
+  size?: unknown
+  stock?: unknown
+}
 
 function normalizeStatus(value: unknown): ProductStatus {
   if (
@@ -13,28 +29,45 @@ function normalizeStatus(value: unknown): ProductStatus {
   ) {
     return value
   }
+
   return 'ACTIVE'
 }
 
-function normalizeDropName(value: unknown) {
+function normalizeDropName(value: unknown): string | null {
   const parsed = String(value || '').trim()
   return parsed.length > 0 ? parsed : null
 }
 
-function normalizeReleaseAt(value: unknown) {
+function normalizeReleaseAt(value: unknown): Date | null {
   if (!value) return null
+
   const parsed = new Date(String(value))
+
   if (Number.isNaN(parsed.getTime())) {
     throw new Error('La fecha de lanzamiento no es valida')
   }
+
   return parsed
 }
 
-function normalizeSizes(input: unknown) {
-  const incoming = Array.isArray(input) ? input : []
+function normalizeImages(input: unknown): string[] {
+  if (!Array.isArray(input)) return []
 
-  return SIZES.map((size) => {
-    const found = incoming.find((item) => item?.size === size)
+  return input
+    .map((url: unknown) => String(url || '').trim())
+    .filter((url: string): url is string => url.length > 0)
+}
+
+function normalizeSizes(input: unknown): NormalizedSize[] {
+  const incoming: IncomingSize[] = Array.isArray(input)
+    ? input.filter((item: unknown): item is IncomingSize => {
+        return typeof item === 'object' && item !== null
+      })
+    : []
+
+  return SIZES.map((size: Size) => {
+    const found = incoming.find((item: IncomingSize) => item.size === size)
+
     return {
       size,
       stock: Math.max(0, Number(found?.stock) || 0),
@@ -42,10 +75,24 @@ function normalizeSizes(input: unknown) {
   })
 }
 
-export async function PUT(
-  request: Request,
-  context: { params: Promise<{ id: string }> }
-) {
+function normalizeName(value: unknown): string {
+  return String(value || '').trim()
+}
+
+function normalizeDescription(value: unknown): string | null {
+  const parsed = String(value || '').trim()
+  return parsed.length > 0 ? parsed : null
+}
+
+function normalizeCategoryId(value: unknown): string {
+  return String(value || '').trim()
+}
+
+function normalizePrice(value: unknown): number {
+  return Number(value)
+}
+
+export async function PUT(request: Request, context: RouteContext) {
   try {
     const user = await getCurrentUser()
 
@@ -54,20 +101,38 @@ export async function PUT(
     }
 
     const { id } = await context.params
-    const body = await request.json()
 
-    const name = String(body.name || '').trim()
-    const description = String(body.description || '').trim() || null
-    const price = Number(body.price)
-    const categoryId = String(body.categoryId || '').trim()
-    const status = normalizeStatus(body.status)
-    const dropName = normalizeDropName(body.dropName)
-    const releaseAt = normalizeReleaseAt(body.releaseAt)
-    const images = Array.isArray(body.images)
-      ? body.images.map((url: unknown) => String(url).trim()).filter(Boolean)
-      : []
-    const sizes = normalizeSizes(body.sizes)
-    const totalStock = sizes.reduce((sum, item) => sum + item.stock, 0)
+    if (!id) {
+      return NextResponse.json(
+        { error: 'El ID del producto es requerido' },
+        { status: 400 }
+      )
+    }
+
+    const body: unknown = await request.json()
+
+    if (typeof body !== 'object' || body === null) {
+      return NextResponse.json(
+        { error: 'El cuerpo de la solicitud es invalido' },
+        { status: 400 }
+      )
+    }
+
+    const payload = body as Record<string, unknown>
+
+    const name = normalizeName(payload.name)
+    const description = normalizeDescription(payload.description)
+    const price = normalizePrice(payload.price)
+    const categoryId = normalizeCategoryId(payload.categoryId)
+    const status = normalizeStatus(payload.status)
+    const dropName = normalizeDropName(payload.dropName)
+    const releaseAt = normalizeReleaseAt(payload.releaseAt)
+    const images = normalizeImages(payload.images)
+    const sizes = normalizeSizes(payload.sizes)
+    const totalStock = sizes.reduce(
+      (sum: number, item: NormalizedSize) => sum + item.stock,
+      0
+    )
 
     if (!name) {
       return NextResponse.json(
@@ -104,6 +169,30 @@ export async function PUT(
       )
     }
 
+    const existingProduct = await prisma.product.findUnique({
+      where: { id },
+      select: { id: true },
+    })
+
+    if (!existingProduct) {
+      return NextResponse.json(
+        { error: 'El producto no existe' },
+        { status: 404 }
+      )
+    }
+
+    const existingCategory = await prisma.category.findUnique({
+      where: { id: categoryId },
+      select: { id: true },
+    })
+
+    if (!existingCategory) {
+      return NextResponse.json(
+        { error: 'La categoria seleccionada no existe' },
+        { status: 404 }
+      )
+    }
+
     const product = await prisma.$transaction(async (tx) => {
       await tx.productImage.deleteMany({
         where: { productId: id },
@@ -125,20 +214,24 @@ export async function PUT(
           dropName,
           releaseAt,
           images: {
-            create: images.map((url, index) => ({
+            create: images.map((url: string, index: number) => ({
               url,
               order: index,
             })),
           },
           sizes: {
-            create: sizes.map((item) => ({
+            create: sizes.map((item: NormalizedSize) => ({
               size: item.size,
               stock: item.stock,
             })),
           },
         },
         include: {
-          images: { orderBy: { order: 'asc' } },
+          images: {
+            orderBy: {
+              order: 'asc',
+            },
+          },
           sizes: true,
           category: true,
         },
@@ -148,6 +241,7 @@ export async function PUT(
     return NextResponse.json(product)
   } catch (error) {
     console.error('[admin:products:update]', error)
+
     return NextResponse.json(
       {
         error:
@@ -160,10 +254,7 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  _request: Request,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(_request: Request, context: RouteContext) {
   try {
     const user = await getCurrentUser()
 
@@ -172,6 +263,25 @@ export async function DELETE(
     }
 
     const { id } = await context.params
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'El ID del producto es requerido' },
+        { status: 400 }
+      )
+    }
+
+    const existingProduct = await prisma.product.findUnique({
+      where: { id },
+      select: { id: true },
+    })
+
+    if (!existingProduct) {
+      return NextResponse.json(
+        { error: 'El producto no existe' },
+        { status: 404 }
+      )
+    }
 
     await prisma.$transaction(async (tx) => {
       await tx.cartItem.deleteMany({
@@ -198,6 +308,7 @@ export async function DELETE(
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('[admin:products:delete]', error)
+
     return NextResponse.json(
       {
         error:
