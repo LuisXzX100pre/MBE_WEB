@@ -332,6 +332,7 @@ async function createFallbackOrderFromSucceededPayment(
           shippingQuote?.carrierDisplayName || shippingQuote?.carrier || null,
         shippingService: shippingQuote?.serviceName || null,
         shippingRateId: shippingQuote?.rateId || null,
+        shippingQuotationId: paymentIntent.metadata.shippingQuotationId || null,
         shippingBucket: shippingQuote?.bucket || null,
         shippingEstimatedDays:
           typeof shippingQuote?.estimatedDays === 'number'

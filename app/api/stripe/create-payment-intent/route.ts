@@ -3,25 +3,8 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { stripe } from '@/lib/stripe'
 import { getCurrentUser } from '@/lib/auth'
-import {
-  buildLocalFreeDeliveryOption,
-  isBenitoJuarezCancunDestination,
-  isLocalFreeDeliveryOption,
-} from '@/lib/local-delivery'
-
-type SelectedShippingOption = {
-  rateId: string
-  carrier: string
-  carrierDisplayName: string
-  serviceName: string
-  serviceCode?: string
-  currency: string
-  amount: number
-  total: number
-  estimatedDays: number | null
-  pickup: boolean
-  bucket?: 'cheapest' | 'best_value' | 'express'
-}
+import { resolveCheckoutShipping, CheckoutShippingError } from '@/lib/shipping/checkout-shipping'
+import type { LocalDeliveryLike } from '@/lib/local-delivery'
 
 type CreatePaymentIntentBody = {
   paymentIntentId?: string
@@ -41,7 +24,7 @@ type CreatePaymentIntentBody = {
   reference?: string
   furtherInformation?: string
 
-  selectedShippingOption: SelectedShippingOption
+  selectedShippingOption: LocalDeliveryLike
 }
 
 function normalizePhone(phone: string) {
@@ -172,57 +155,10 @@ export async function POST(request: Request) {
       )
     }
 
-    if (
-      !rawSelectedShippingOption ||
-      !rawSelectedShippingOption.rateId ||
-      !rawSelectedShippingOption.carrierDisplayName ||
-      !rawSelectedShippingOption.serviceName
-    ) {
-      return NextResponse.json(
-        { error: 'Debes seleccionar una opción de envío válida' },
-        { status: 400 }
-      )
-    }
-
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
       return NextResponse.json(
         { error: 'Formato de email inválido' },
-        { status: 400 }
-      )
-    }
-
-    const isLocalDestination = isBenitoJuarezCancunDestination({
-      state,
-      city,
-    })
-
-    if (!isLocalDestination && isLocalFreeDeliveryOption(rawSelectedShippingOption)) {
-      return NextResponse.json(
-        {
-          error:
-            'La entrega local gratis solo está disponible para Benito Juárez, Quintana Roo',
-        },
-        { status: 400 }
-      )
-    }
-
-    const selectedShippingOption: SelectedShippingOption = isLocalDestination
-      ? (buildLocalFreeDeliveryOption() as SelectedShippingOption)
-      : rawSelectedShippingOption
-
-    if (String(selectedShippingOption.currency || '').toUpperCase() !== 'MXN') {
-      return NextResponse.json(
-        { error: 'La cotización de envío debe estar en MXN' },
-        { status: 400 }
-      )
-    }
-
-    const shippingCost = Number(selectedShippingOption.total)
-
-    if (!Number.isFinite(shippingCost) || shippingCost < 0) {
-      return NextResponse.json(
-        { error: 'El costo de envío es inválido' },
         { status: 400 }
       )
     }
@@ -292,6 +228,18 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+
+    const { option: selectedShippingOption, quotationId: shippingQuotationId } =
+      await resolveCheckoutShipping({
+        userId: user.id,
+        items: cart.items,
+        selectedOption: rawSelectedShippingOption,
+        destination: {
+          recipient, phone: normalizePhone(phone), email, postalCode, state, city,
+          colony, street, extNumber, intNumber, reference, furtherInformation,
+        },
+      })
+    const shippingCost = selectedShippingOption.total
 
     const total = subtotal + shippingCost
 
@@ -371,6 +319,7 @@ export async function POST(request: Request) {
             selectedShippingOption.carrierDisplayName || selectedShippingOption.carrier,
           shippingService: selectedShippingOption.serviceName,
           shippingRateId: selectedShippingOption.rateId,
+          shippingQuotationId,
           shippingBucket: selectedShippingOption.bucket || null,
           shippingEstimatedDays:
             typeof selectedShippingOption.estimatedDays === 'number'
@@ -396,6 +345,7 @@ export async function POST(request: Request) {
             selectedShippingOption.carrierDisplayName || selectedShippingOption.carrier,
           shippingService: selectedShippingOption.serviceName,
           shippingRateId: selectedShippingOption.rateId,
+          shippingQuotationId: shippingQuotationId || '',
           shippingCost: shippingCost.toFixed(2),
           subtotal: subtotal.toFixed(2),
           total: total.toFixed(2),
@@ -451,6 +401,7 @@ export async function POST(request: Request) {
               selectedShippingOption.carrierDisplayName || selectedShippingOption.carrier,
             shippingService: selectedShippingOption.serviceName,
             shippingRateId: selectedShippingOption.rateId,
+            shippingQuotationId,
             shippingBucket: selectedShippingOption.bucket || null,
             shippingEstimatedDays:
               typeof selectedShippingOption.estimatedDays === 'number'
@@ -499,6 +450,7 @@ export async function POST(request: Request) {
             selectedShippingOption.carrierDisplayName || selectedShippingOption.carrier,
           shippingService: selectedShippingOption.serviceName,
           shippingRateId: selectedShippingOption.rateId,
+          shippingQuotationId: shippingQuotationId || '',
           shippingCost: shippingCost.toFixed(2),
           subtotal: subtotal.toFixed(2),
           total: total.toFixed(2),
@@ -563,7 +515,7 @@ export async function POST(request: Request) {
             ? error.message
             : 'No se pudo iniciar el pago con Stripe',
       },
-      { status: 500 }
+      { status: error instanceof CheckoutShippingError ? 400 : 500 }
     )
   }
 }
