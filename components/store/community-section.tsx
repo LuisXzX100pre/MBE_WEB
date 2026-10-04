@@ -1,10 +1,36 @@
 import Link from 'next/link'
 import { ArrowUpRight } from 'lucide-react'
-export function CommunitySection() {
-  return <section className="overflow-hidden border-y border-white/10 bg-[#080808] px-5 py-20 text-white sm:px-8 md:py-28">
-    <div className="mx-auto grid max-w-7xl gap-10 md:grid-cols-2 md:items-end">
-      <div><p className="mb-6 text-[10px] uppercase tracking-[0.35em] text-white/40">Acceso a otro nivel</p><h2 className="text-5xl font-black uppercase leading-[0.95] tracking-tighter sm:text-6xl">Comunidad<br /><span className="text-white/35">MBE.</span></h2></div>
-      <div className="max-w-md"><p className="text-xl">Un espacio para los que estan dentro.</p><p className="mt-4 text-sm leading-7 text-white/50">Adelantos, procesos, beneficios y cosas que no publicamos afuera.</p><Link href="/comunidad" className="mt-8 inline-flex items-center gap-8 border-b border-white py-3 text-xs uppercase tracking-widest">Entrar a la comunidad<ArrowUpRight size={18} /></Link></div>
-    </div>
-  </section>
+
+export function CommunitySection({ communityCount }: { communityCount: number }) {
+  const count = communityCount.toLocaleString('es-MX')
+  const membershipLabel = communityCount === 1
+    ? '1 persona está adentro'
+    : count + ' personas están adentro'
+
+  return (
+    <section className="border-b border-white/10 bg-[#080808] px-5 py-7 text-center text-white sm:px-8 sm:py-10 md:py-16">
+      <div className="mx-auto max-w-2xl">
+        <h2 className="text-xl font-black uppercase tracking-tight sm:text-3xl md:text-4xl">
+          MBE Community
+        </h2>
+        <p className="mt-2 text-sm font-medium sm:mt-3 sm:text-lg">
+          Lo que no sale afuera.
+        </p>
+        <p className="mx-auto mt-2 max-w-xs text-xs leading-5 text-white/50 sm:max-w-lg sm:text-sm sm:leading-6">
+          Adelantos, procesos y beneficios para los que están dentro.
+        </p>
+        <div className="mt-5 flex flex-col items-center sm:mt-7">
+          <Link
+            href="/comunidad"
+            prefetch={false}
+            className="inline-flex min-h-11 items-center justify-center gap-4 border border-white/30 px-6 py-3 text-[10px] font-bold uppercase tracking-[0.2em] transition-colors hover:bg-white hover:text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white sm:text-xs"
+          >
+            Comunidad Adentro
+            <ArrowUpRight size={16} aria-hidden="true" />
+          </Link>
+          <p className="mt-3 text-[10px] text-white/40 sm:text-xs">{membershipLabel}</p>
+        </div>
+      </div>
+    </section>
+  )
 }

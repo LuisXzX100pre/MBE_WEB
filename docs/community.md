@@ -45,3 +45,23 @@ Tests use simulated sessions/transactions/Blob metadata; they do not claim live 
 - Mobile/desktop feed and admin layouts; keyboard controls, reduced-motion wheel and video seek/range playback.
 
 All phase builds compiled but stopped at page-data collection because JWT_SECRET was absent in this local checkout. Lint's existing warning at contexts/cart-context.tsx:58 is outside Community scope. No database migration, live authenticated browser QA, or real Blob upload has been performed without the required environment.
+
+
+## Membresias persistentes y presentacion compacta
+La home consulta CommunityMembership.count() en servidor. No cuenta todos los User registrados.
+Al abrir /comunidad, enterCommunity() obtiene el usuario de getCurrentUser() y hace un upsert por userId (UNIQUE). joinedAt se conserva; lastSeenAt se actualiza. No existe endpoint publico de contador, presencia en tiempo real ni login adicional. El CTA tiene prefetch=false para no registrar entradas al precargar el enlace.
+
+CommunitySection aparece una sola vez, antes del hero existente. El bloque de home y el hero de /comunidad son compactos en mobile y mantienen mayor escala editorial en desktop.
+
+Migracion nueva: prisma/migrations/20261004120000_community_membership/migration.sql.
+Solo crea CommunityMembership, su indice unico por userId, indice de joinedAt y FK a User. La migracion anterior de Comunidad no se modifica. Esta migracion NO se ha aplicado a ninguna BD desde este trabajo.
+
+Antes de usar este codigo con una BD existente:
+1. Ejecuta npx prisma migrate status.
+2. Confirma que la unica migracion pendiente es 20261004120000_community_membership.
+3. Ejecuta npx prisma migrate deploy. Prisma aplica todas las pendientes; bajo esa comprobacion ejecutara solo la nueva.
+4. Ejecuta npx prisma generate y reinicia npm run dev.
+Si aparecen otras migraciones pendientes, no ejecutes deploy hasta revisar el historial. No uses reset ni db push.
+
+Pruebas: node --test tests/community-membership.test.cjs tests/community-security.test.cjs.
+Las pruebas de membresia usan sesiones/DB simuladas y el metadata de Prisma; incluyen visitas repetidas y concurrentes, distintos usuarios, identidad de sesion, usuario anonimo, singular/plural, contador server-side y orden del Home.
