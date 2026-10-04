@@ -20,19 +20,20 @@ model User {
   cart                Cart?
   orders              Order[]
   passwordResetTokens PasswordResetToken[]
-  communityComments CommunityComment[]
+  communityComments   CommunityComment[]
   communityWheelSpins CommunityWheelSpin[]
-  communityTickets CommunityTicket[]
+  communityTickets    CommunityTicket[]
+  communityMembership CommunityMembership?
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String   @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId])
   @@index([expiresAt])
@@ -51,27 +52,27 @@ model Category {
 }
 
 model Product {
-  id              String        @id @default(cuid())
+  id              String         @id @default(cuid())
   name            String
   description     String?
   price           Float
-  stock           Int           @default(0)
-  weightKg        Float         @default(0.35)
-  lengthCm        Int           @default(30)
-  widthCm         Int           @default(24)
-  heightCm        Int           @default(4)
-  shipsSeparately Boolean       @default(false)
-  status          ProductStatus @default(ACTIVE)
+  stock           Int            @default(0)
+  weightKg        Float          @default(0.35)
+  lengthCm        Int            @default(30)
+  widthCm         Int            @default(24)
+  heightCm        Int            @default(4)
+  shipsSeparately Boolean        @default(false)
+  status          ProductStatus  @default(ACTIVE)
   dropName        String?
   releaseAt       DateTime?
   categoryId      String
-  category        Category      @relation(fields: [categoryId], references: [id])
+  category        Category       @relation(fields: [categoryId], references: [id])
   images          ProductImage[]
   sizes           ProductSize[]
   cartItems       CartItem[]
   orderItems      OrderItem[]
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 }
 
 model ProductSize {
@@ -127,30 +128,30 @@ model CartItem {
 }
 
 model Order {
-  id                     String      @id @default(cuid())
-  userId                 String
-  user                   User        @relation(fields: [userId], references: [id])
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
-  subtotal               Float       @default(0)
-  shippingCost           Float       @default(0)
-  total                  Float
-  currency               String      @default("MXN")
+  subtotal     Float  @default(0)
+  shippingCost Float  @default(0)
+  total        Float
+  currency     String @default("MXN")
 
-  status                 OrderStatus @default(PENDING)
+  status OrderStatus @default(PENDING)
 
-  shippingAddress        String?
-  shippingFullName       String?
-  shippingPhone          String?
-  shippingEmail          String?
-  shippingPostalCode     String?
-  shippingState          String?
-  shippingCity           String?
-  shippingNeighborhood   String?
-  shippingStreet         String?
-  shippingExtNumber      String?
-  shippingIntNumber      String?
-  shippingReference      String?
-  shippingCountry        String      @default("MX")
+  shippingAddress      String?
+  shippingFullName     String?
+  shippingPhone        String?
+  shippingEmail        String?
+  shippingPostalCode   String?
+  shippingState        String?
+  shippingCity         String?
+  shippingNeighborhood String?
+  shippingStreet       String?
+  shippingExtNumber    String?
+  shippingIntNumber    String?
+  shippingReference    String?
+  shippingCountry      String  @default("MX")
 
   shippingCarrier        String?
   shippingService        String?
@@ -164,13 +165,13 @@ model Order {
   shippingQuoteJson      Json?
   skydropxShipmentId     String?
 
-  inventoryDiscounted    Boolean     @default(false)
+  inventoryDiscounted Boolean @default(false)
 
-  items                  OrderItem[]
-  payment                Payment?
+  items   OrderItem[]
+  payment Payment?
 
-  createdAt              DateTime    @default(now())
-  updatedAt              DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum OrderStatus {
@@ -217,81 +218,104 @@ enum PaymentStatus {
   FAILED
   REFUNDED
 }
+
 enum CommunityMediaType {
   IMAGE
   VIDEO
 }
+
 model CommunityPost {
-  id String @id @default(cuid())
-  title String
-  description String
-  mediaUrl String
-  mediaType CommunityMediaType
+  id           String             @id @default(cuid())
+  title        String
+  description  String
+  mediaUrl     String
+  mediaType    CommunityMediaType
   thumbnailUrl String?
-  published Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  comments CommunityComment[]
+  published    Boolean            @default(false)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  comments     CommunityComment[]
+
   @@index([published, createdAt])
 }
+
 model CommunityComment {
-  id String @id @default(cuid())
-  userId String
-  postId String
-  text String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  id        String        @id @default(cuid())
+  userId    String
+  postId    String
+  text      String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
   @@index([postId, createdAt])
   @@index([userId])
 }
+
 model CommunityWheelCampaign {
-  id String @id @default(cuid())
-  name String
-  active Boolean @default(false)
-  startsAt DateTime?
-  endsAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  spins CommunityWheelSpin[]
+  id        String               @id @default(cuid())
+  name      String
+  active    Boolean              @default(false)
+  startsAt  DateTime?
+  endsAt    DateTime?
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  spins     CommunityWheelSpin[]
+
   @@index([active, createdAt])
 }
+
 model CommunityWheelSpin {
-  id String @id @default(cuid())
-  userId String
-  campaignId String
+  id              String                 @id @default(cuid())
+  userId          String
+  campaignId      String
   discountPercent Int
-  createdAt DateTime @default(now())
-  usedAt DateTime?
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  campaign CommunityWheelCampaign @relation(fields: [campaignId], references: [id])
+  createdAt       DateTime               @default(now())
+  usedAt          DateTime?
+  user            User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaign        CommunityWheelCampaign @relation(fields: [campaignId], references: [id])
+
   @@unique([userId, campaignId])
   @@index([campaignId, createdAt])
 }
+
 model CommunityEvent {
-  id String @id @default(cuid())
-  title String
+  id          String            @id @default(cuid())
+  title       String
   description String
-  active Boolean @default(false)
-  startsAt DateTime
-  endsAt DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  tickets CommunityTicket[]
+  active      Boolean           @default(false)
+  startsAt    DateTime
+  endsAt      DateTime
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  tickets     CommunityTicket[]
+
   @@index([active, startsAt])
 }
+
 model CommunityTicket {
-  id String @id @default(cuid())
-  eventId String
-  userId String
+  id              String         @id @default(cuid())
+  eventId         String
+  userId          String
   discountPercent Int
-  code String @unique
-  createdAt DateTime @default(now())
-  expiresAt DateTime?
-  usedAt DateTime?
-  event CommunityEvent @relation(fields: [eventId], references: [id])
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code            String         @unique
+  createdAt       DateTime       @default(now())
+  expiresAt       DateTime?
+  usedAt          DateTime?
+  event           CommunityEvent @relation(fields: [eventId], references: [id])
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId, createdAt])
   @@index([eventId, createdAt])
+}
+
+model CommunityMembership {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  joinedAt   DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([joinedAt])
 }
