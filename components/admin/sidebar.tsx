@@ -11,6 +11,7 @@ import {
   ShoppingCart,
   LogOut,
   Store,
+  Users,
 } from 'lucide-react'
 
 interface User {
@@ -27,6 +28,7 @@ export function AdminSidebar({ user }: { user: User }) {
     { href: '/admin/productos', label: 'Productos', icon: Package },
     { href: '/admin/categorias', label: 'Categorias', icon: Tags },
     { href: '/admin/ordenes', label: 'Ordenes', icon: ShoppingCart },
+    { href: '/admin/comunidad', label: 'Comunidad', icon: Users },
   ]
 
   const handleLogout = async () => {

@@ -44,7 +44,8 @@ function LoginPageContent() {
     setLoading(false)
 
     if (result.success) {
-      router.push('/')
+      const next = searchParams.get('next')
+      router.push(next === '/comunidad' ? '/comunidad' : '/')
       router.refresh()
     } else {
       setError(result.error || 'Error al iniciar sesión')

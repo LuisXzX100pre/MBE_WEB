@@ -20,6 +20,9 @@ model User {
   cart                Cart?
   orders              Order[]
   passwordResetTokens PasswordResetToken[]
+  communityComments CommunityComment[]
+  communityWheelSpins CommunityWheelSpin[]
+  communityTickets CommunityTicket[]
 }
 
 model PasswordResetToken {
@@ -213,4 +216,82 @@ enum PaymentStatus {
   COMPLETED
   FAILED
   REFUNDED
+}
+enum CommunityMediaType {
+  IMAGE
+  VIDEO
+}
+model CommunityPost {
+  id String @id @default(cuid())
+  title String
+  description String
+  mediaUrl String
+  mediaType CommunityMediaType
+  thumbnailUrl String?
+  published Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  comments CommunityComment[]
+  @@index([published, createdAt])
+}
+model CommunityComment {
+  id String @id @default(cuid())
+  userId String
+  postId String
+  text String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  @@index([postId, createdAt])
+  @@index([userId])
+}
+model CommunityWheelCampaign {
+  id String @id @default(cuid())
+  name String
+  active Boolean @default(false)
+  startsAt DateTime?
+  endsAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  spins CommunityWheelSpin[]
+  @@index([active, createdAt])
+}
+model CommunityWheelSpin {
+  id String @id @default(cuid())
+  userId String
+  campaignId String
+  discountPercent Int
+  createdAt DateTime @default(now())
+  usedAt DateTime?
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaign CommunityWheelCampaign @relation(fields: [campaignId], references: [id])
+  @@unique([userId, campaignId])
+  @@index([campaignId, createdAt])
+}
+model CommunityEvent {
+  id String @id @default(cuid())
+  title String
+  description String
+  active Boolean @default(false)
+  startsAt DateTime
+  endsAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tickets CommunityTicket[]
+  @@index([active, startsAt])
+}
+model CommunityTicket {
+  id String @id @default(cuid())
+  eventId String
+  userId String
+  discountPercent Int
+  code String @unique
+  createdAt DateTime @default(now())
+  expiresAt DateTime?
+  usedAt DateTime?
+  event CommunityEvent @relation(fields: [eventId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+  @@index([eventId, createdAt])
 }
