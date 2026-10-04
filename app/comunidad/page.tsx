@@ -5,6 +5,7 @@ import { Header } from '@/components/store/header'
 import { Footer } from '@/components/store/footer'
 import { CommunityFeed } from '@/components/community/community-feed'
 import { DiscountWheel } from '@/components/community/discount-wheel'
+import { CommunityEvents } from '@/components/community/community-events'
 import type { Post } from '@/lib/community/types'
 export const dynamic = 'force-dynamic'
 export default async function CommunityPage() {
@@ -17,8 +18,8 @@ export default async function CommunityPage() {
       <div className="relative"><div className="mb-10 flex items-center gap-3 text-[10px] uppercase tracking-[0.35em] text-white/50"><span className="h-1.5 w-1.5 bg-white" />Acceso concedido / {user.username}</div>
         <h1 className="max-w-4xl text-5xl font-black uppercase leading-[0.9] tracking-tighter sm:text-7xl md:text-8xl">MBE<br /><span className="text-white/35">Community.</span></h1>
         <p className="mt-8 text-xl font-medium">Lo que no sale afuera.</p><p className="mt-3 max-w-md text-sm leading-6 text-white/45">Adelantos, procesos y beneficios. Una mirada al interior de MBE, para quienes son parte.</p>
-        <nav className="mt-10 flex flex-wrap gap-6 text-[10px] uppercase tracking-[0.25em]"><a href="#archivo" className="border-b border-white pb-2">01 / Archivo</a><a href="#ruleta" className="pb-2 text-white/50">02 / Tu ventaja</a></nav>
+        <nav className="mt-10 flex flex-wrap gap-6 text-[10px] uppercase tracking-[0.25em]"><a href="#archivo" className="border-b border-white pb-2">01 / Archivo</a><a href="#ruleta" className="pb-2 text-white/50">02 / Tu ventaja</a><a href="#eventos" className="pb-2 text-white/50">03 / Sorpresas</a></nav>
       </div>
-    </section><CommunityFeed initialPosts={JSON.parse(JSON.stringify(feed.posts)) as Post[]} initialCursor={feed.nextCursor} /><DiscountWheel />
+    </section><CommunityFeed initialPosts={JSON.parse(JSON.stringify(feed.posts)) as Post[]} initialCursor={feed.nextCursor} /><DiscountWheel /><CommunityEvents />
   </main><Footer /></div>
 }
