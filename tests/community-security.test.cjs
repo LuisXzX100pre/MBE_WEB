@@ -94,3 +94,69 @@ test('Prisma declares unique per-user campaign spins and unique ticket codes', (
   assert.ok(Prisma.dmmf.datamodel.models.find(m => m.name === 'CommunityWheelSpin').uniqueFields.some(f => f.join(',') === 'userId,campaignId'))
   assert.ok(Prisma.dmmf.datamodel.models.find(m => m.name === 'CommunityTicket').fields.find(f => f.name === 'code').isUnique)
 })
+
+test('tickets validate percentages, expired events and expiry bounds', async () => {
+  let active = true, end = new Date(Date.now() + 86400000), assigned
+  const tx = {
+    communityEvent: { findUnique: async () => ({ id: 'event', active, endsAt: end }) },
+    user: { findUnique: async ({ where }) => where.username === 'member' ? { id: 'db-user' } : null },
+    communityTicket: { create: async ({ data }) => { assigned = data; return data } },
+  }
+  const events = load('lib/community/events.ts', { './validation': validation, '@/lib/prisma': { prisma: { $transaction: async work => work(tx) } } })
+  for (const value of [0, 101, 2.5, '10', null]) assert.throws(() => events.ticketPercent(value))
+  const input = { eventId: 'event', username: 'member', userId: 'forged', discountPercent: 5 }
+  const ticket = await events.assignTicket(input)
+  assert.equal(assigned.userId, 'db-user'); assert.equal(ticket.expiresAt, end)
+  assert.match(ticket.code, /^MBE-[A-F0-9]{20}$/)
+  assert.notEqual(events.ticketCode(), events.ticketCode())
+  await assert.rejects(() => events.assignTicket({ ...input, expiresAt: new Date(end.getTime() + 1000).toISOString() }))
+  await assert.rejects(() => events.assignTicket({ ...input, username: 'missing' }), e => e.status === 404)
+  active = false; await assert.rejects(() => events.assignTicket(input), e => e.status === 409)
+  active = true; end = new Date(Date.now() - 1000); await assert.rejects(() => events.assignTicket(input), e => e.status === 409)
+})
+test('event tickets are queried using session identity only', async () => {
+  let filter
+  const events = load('lib/community/events.ts', {
+    './validation': validation,
+    '@/lib/prisma': { prisma: {
+      communityEvent: { findMany: async () => [] },
+      communityTicket: { findMany: async ({ where }) => { filter = where; return [] } },
+    } },
+  })
+  await events.eventState('session-user')
+  assert.deepEqual(filter, { userId: 'session-user' })
+})
+test('every admin community handler denies non-admin sessions before DB or Blob work', async () => {
+  const guard = load('lib/community/api.ts', {
+    '@/lib/auth': { getCurrentUser: async () => ({ id: 'u', role: 'CLIENTE' }) },
+    './validation': validation, 'next/server': { NextResponse: { json: Response.json } },
+    '@prisma/client': { Prisma: { PrismaClientKnownRequestError: KnownError } },
+  })
+  function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? walk(dir + '/' + entry.name) : entry.name === 'route.ts' ? [dir + '/' + entry.name] : []) }
+  for (const file of walk('app/api/admin/community')) {
+    const route = load(file, {
+      '@/lib/community/api': guard, '@/lib/community/validation': validation,
+      '@/lib/prisma': { prisma: {} }, '@/lib/community/posts': {}, '@/lib/community/campaigns': {},
+      '@/lib/community/events': {}, '@/lib/community/media': {}, '@vercel/blob/client': {},
+    })
+    for (const method of ['GET', 'POST', 'PATCH', 'DELETE']) {
+      if (route[method]) {
+        const response = await route[method](new Request('https://mbe.test/api/admin/community', { method }), { params: { id: 'x' } })
+        assert.equal(response.status, 403, file + ' ' + method)
+      }
+    }
+  }
+})
+test('private media URL cannot point to another store or an arbitrary server', async () => {
+  const old = process.env.COMMUNITY_BLOB_READ_WRITE_TOKEN
+  process.env.COMMUNITY_BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_mbestore_test'
+  try {
+    const media = load('lib/community/media.ts', {
+      './validation': validation, '@vercel/blob': { head: async () => ({ contentType: 'image/jpeg', size: 100 }) },
+    })
+    await assert.rejects(() => media.validateMedia('https://evil.test/community/a.jpg', 'IMAGE'))
+    await assert.rejects(() => media.validateMedia('https://other.private.blob.vercel-storage.com/community/a.jpg', 'IMAGE'))
+    assert.equal(await media.validateMedia('https://mbestore.private.blob.vercel-storage.com/community/a.jpg', 'IMAGE'), 'https://mbestore.private.blob.vercel-storage.com/community/a.jpg')
+    await assert.rejects(() => media.validateMedia('https://mbestore.private.blob.vercel-storage.com/community/a.jpg', 'VIDEO'))
+  } finally { if (old === undefined) delete process.env.COMMUNITY_BLOB_READ_WRITE_TOKEN; else process.env.COMMUNITY_BLOB_READ_WRITE_TOKEN = old }
+})
