@@ -187,8 +187,6 @@ export default async function HomePage() {
         className="relative flex-1 overflow-hidden"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 4rem)' }}
       >
-        <CommunitySection communityCount={communityCount} />
-
         <section className="relative isolate overflow-hidden px-3 pb-10 pt-3 sm:px-4 sm:pb-12 sm:pt-4 md:px-6 lg:px-8">
           <div className="absolute inset-0 bg-gradient-to-b from-card via-background to-background" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.06),transparent_26%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.04),transparent_22%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.03),transparent_22%)]" />
@@ -210,6 +208,8 @@ export default async function HomePage() {
                 “MBE es para todos, pero no para cualquiera.”
               </p>
             </div>
+
+            <CommunitySection communityCount={communityCount} />
 
             <div className="mt-6 flex min-h-[520px] w-full items-center sm:mt-8 md:min-h-[580px] lg:min-h-[640px]">
               <HomeHeroSwitcher

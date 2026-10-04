@@ -8,7 +8,7 @@ export function CommunitySection({ communityCount }: { communityCount: number })
     : count + ' personas están adentro'
 
   return (
-    <section className="border-b border-white/10 bg-[#080808] px-5 py-7 text-center text-white sm:px-8 sm:py-10 md:py-16">
+    <section className="px-2 pb-2 pt-6 text-center text-white sm:px-8 sm:pb-4 sm:pt-8 md:pb-6 md:pt-12">
       <div className="mx-auto max-w-2xl">
         <h2 className="text-xl font-black uppercase tracking-tight sm:text-3xl md:text-4xl">
           MBE Community
@@ -28,7 +28,10 @@ export function CommunitySection({ communityCount }: { communityCount: number })
             Comunidad Adentro
             <ArrowUpRight size={16} aria-hidden="true" />
           </Link>
-          <p className="mt-3 text-[10px] text-white/40 sm:text-xs">{membershipLabel}</p>
+          <p className="mt-3 flex items-center justify-center gap-2 text-[10px] text-white/40 sm:text-xs">
+            <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-current motion-safe:animate-pulse motion-safe:[animation-duration:3s]" />
+            <span>{membershipLabel}</span>
+          </p>
         </div>
       </div>
     </section>
