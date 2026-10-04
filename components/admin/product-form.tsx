@@ -369,7 +369,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
                 className="w-full rounded-lg border border-border bg-background px-4 py-3 focus:outline-none focus:ring-2 focus:ring-ring"
               />
               <p className="mt-2 text-xs text-muted-foreground">
-                Si el producto esta en "Proximo drop", esta fecha se usa para
+                Si el producto esta en &quot;Proximo drop&quot;, esta fecha se usa para
                 desbloquearlo automaticamente.
               </p>
             </div>
