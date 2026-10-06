@@ -4,6 +4,7 @@ import { Suspense, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
+import { communityReturnPath } from '@/lib/community/access-link'
 import { useAuth } from '@/contexts/auth-context'
 import { Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react'
 
@@ -45,7 +46,7 @@ function LoginPageContent() {
 
     if (result.success) {
       const next = searchParams.get('next')
-      router.push(next === '/comunidad' ? '/comunidad' : '/')
+      router.push(communityReturnPath(next) || '/')
       router.refresh()
     } else {
       setError(result.error || 'Error al iniciar sesión')

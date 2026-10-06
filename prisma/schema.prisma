@@ -24,6 +24,8 @@ model User {
   communityWheelSpins CommunityWheelSpin[]
   communityTickets    CommunityTicket[]
   communityMembership CommunityMembership?
+  communityInviteRedemption CommunityInviteRedemption?
+  communityAccessAttempts CommunityAccessAttempt[]
 }
 
 model PasswordResetToken {
@@ -318,4 +320,45 @@ model CommunityMembership {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([joinedAt])
+}
+
+enum CommunityInviteType {
+  INDIVIDUAL
+  CAMPAIGN
+}
+
+model CommunityInvite {
+  id          String @id @default(cuid())
+  name        String
+  codeHash    String @unique
+  type        CommunityInviteType
+  maxUses     Int
+  uses        Int @default(0)
+  active      Boolean @default(true)
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  redemptions CommunityInviteRedemption[]
+
+  @@index([createdAt, id])
+}
+
+model CommunityInviteRedemption {
+  id         String @id @default(cuid())
+  inviteId   String
+  userId     String @unique
+  redeemedAt DateTime @default(now())
+  invite     CommunityInvite @relation(fields: [inviteId], references: [id], onDelete: Restrict)
+  user       User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([inviteId, redeemedAt, id])
+}
+
+model CommunityAccessAttempt {
+  id        String @id @default(cuid())
+  userId    String
+  createdAt DateTime @default(now())
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
