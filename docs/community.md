@@ -6,7 +6,7 @@ develop was created at fix-bugs commit 2186cd5. Comunidad-MBE fast-forwarded to 
 ## Setup
 Use existing PostgreSQL/Supabase DATABASE_URL and DIRECT_URL configuration. Never point development migration commands at production. JWT_SECRET (minimum 32 characters) is required by the existing authentication system. Existing application credentials, including STRIPE_SECRET_KEY, remain unchanged.
 
-Community media requires COMMUNITY_BLOB_READ_WRITE_TOKEN from a PRIVATE Vercel Blob store in the same Vercel project. Keep the existing BLOB_READ_WRITE_TOKEN and product store untouched. No new SDK or external service is added. Files upload directly to Blob, bypassing serverless body limits. Image maximum is 10 MB; video maximum is 50 MB. Allowed MIME types: JPEG, PNG, WEBP, GIF, MP4, WEBM. Tokens expire in ten minutes, enforce MIME and size, and cannot overwrite blobs. Post creation verifies ownership, MIME and size through Blob head(). Published media is streamed through an authenticated route, including HTTP range requests. Unpublished media is readable only by ADMIN. Do not use a public store for exclusive media.
+Community media uses Vercel OIDC with @vercel/blob pinned to 2.5.0 and the existing PRIVATE store mbe-community in the same Vercel project. BLOB_STORE_ID must contain that store's actual ID (not its display name); both store_<id> and <id> are accepted. Vercel supplies VERCEL_OIDC_TOKEN automatically in production. In local development, link this checkout to the correct project with npx vercel link if needed, then run npx vercel env pull .env.local and restart npm run dev. This pulls BLOB_STORE_ID and the short-lived VERCEL_OIDC_TOKEN. Pull again if local credentials are missing or cannot be refreshed. Never expose these variables with NEXT_PUBLIC_. Keep the existing BLOB_READ_WRITE_TOKEN and public product store untouched. Community resolves/refreshes OIDC using @vercel/oidc (installed by the Blob SDK) and returns 503 if OIDC or the store ID is unavailable; it never falls back to the product credential. Files upload directly to Blob, bypassing serverless body limits. Image maximum is 10 MB; video maximum is 50 MB. Allowed MIME types: JPEG, PNG, WEBP, GIF, MP4, WEBM. The Community client uses uploadPresigned(); its ADMIN-only route uses issueSignedToken() and presignUrl() because legacy handleUpload() in 2.5.0 still requires a read-write token. Signed upload permissions allow only put at the validated community/ pathname, expire in ten minutes, enforce MIME and size, add a random suffix, and cannot overwrite blobs. Access remains private. No upload-completed webhook or BLOB_WEBHOOK_PUBLIC_KEY is required. Post creation verifies ownership, MIME and size through Blob head(). Published media is streamed through an authenticated route, including HTTP range requests. Unpublished media is readable only by ADMIN. Do not use a public store for exclusive media.
 
 Deleting a post removes its comments through the foreign key. Blob files are retained so editing/reused files cannot be accidentally destroyed; orphan asset cleanup is a separate maintenance task. Uploaded assets are not inserted in PostgreSQL as binary data.
 
@@ -17,7 +17,7 @@ The SQL file prisma/migrations/20261003120000_community/migration.sql was genera
 2. In an isolated development/staging database with the complete existing history, review the SQL, set DATABASE_URL and DIRECT_URL, then run npx prisma migrate deploy.
 3. Run npx prisma generate and validate authenticated member/admin flows on staging.
 4. Review a production backup and deployment plan separately. Do not run the production migration until explicitly approved. The future production application command is npx prisma migrate deploy; it has not been executed by this task.
-5. Configure the private Blob token in the target environment, deploy Comunidad-MBE only when desired, and create published posts, campaigns and events in /admin/comunidad.
+5. Configure BLOB_STORE_ID for mbe-community and its Vercel project OIDC connection in the target environment, deploy Comunidad-MBE only when desired, and create published posts, campaigns and events in /admin/comunidad.
 
 Never use migrate reset or db push --force-reset.
 
@@ -65,3 +65,15 @@ Si aparecen otras migraciones pendientes, no ejecutes deploy hasta revisar el hi
 
 Pruebas: node --test tests/community-membership.test.cjs tests/community-security.test.cjs.
 Las pruebas de membresia usan sesiones/DB simuladas y el metadata de Prisma; incluyen visitas repetidas y concurrentes, distintos usuarios, identidad de sesion, usuario anonimo, singular/plural, contador server-side y orden del Home.
+
+## OIDC private upload check (no migrations required by this change)
+Use an environment whose existing Community schema is already available. After npx vercel env pull .env.local, restart npm run dev. Production needs BLOB_STORE_ID for mbe-community and Vercel-issued OIDC; do not paste a local short-lived token into production settings.
+
+1. Sign in as ADMIN and open /admin/comunidad, tab Contenido.
+2. Fill Titulo and Descripcion. Choose JPEG/PNG/WEBP/GIF up to 10 MB, or MP4/WEBM up to 50 MB; videos retain multipart uploads and an optional image thumbnail.
+3. Wait for Archivo listo, leave Publicado unchecked and press Guardar. In Vercel Storage, confirm the object is in mbe-community under community/ and its URL uses the private store host. Direct anonymous access must fail.
+4. Test /api/community/media/<post-id> with the ADMIN session (200, or 206 with Range), a CLIENTE session while the post is a draft (404), and without a session (401). Miniaturas use ?thumbnail=1.
+5. Use Editar / publicar, check Publicado and Guardar. An authenticated user should see the media in /comunidad; anonymous access remains denied. Test video seeking and thumbnails.
+6. Unsupported MIME types, files above the limits, non-community paths, public/foreign store URLs and non-ADMIN uploads must be rejected. With OIDC unavailable, Community must fail without using the product token.
+
+Automated OIDC/security tests use mock identities and Blob metadata plus real SDK presigning, not live Vercel uploads.

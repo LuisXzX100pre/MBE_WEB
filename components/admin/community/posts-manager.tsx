@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
-import { upload } from '@vercel/blob/client'
+import { uploadPresigned } from '@vercel/blob/client'
 import { communityRequest, field, action } from './request'
 type Post = { id: string; title: string; description: string; mediaUrl: string; mediaType: 'IMAGE' | 'VIDEO'; thumbnailUrl: string | null; published: boolean }
 const empty = { title: '', description: '', mediaUrl: '', mediaType: 'IMAGE' as 'IMAGE' | 'VIDEO', thumbnailUrl: '', published: false }
@@ -14,7 +14,7 @@ export function PostsManager() {
     if (!extension || (thumbnail && video) || file.size > (video ? 50 : 10) * 1024 * 1024) { setError('Usa imagenes hasta 10 MB o MP4/WEBM hasta 50 MB'); return }
     setBusy(true); setError('')
     try {
-      const blob = await upload('community/' + crypto.randomUUID() + '.' + extension, file, { access: 'private', handleUploadUrl: '/api/admin/community/upload', multipart: video })
+      const blob = await uploadPresigned('community/' + crypto.randomUUID() + '.' + extension, file, { access: 'private', handleUploadUrl: '/api/admin/community/upload', multipart: video })
       setForm(prev => thumbnail ? { ...prev, thumbnailUrl: blob.url } : { ...prev, mediaUrl: blob.url, mediaType: video ? 'VIDEO' : 'IMAGE' })
     } catch (e) { setError(e instanceof Error ? e.message : 'Error de upload') }
     finally { setBusy(false) }

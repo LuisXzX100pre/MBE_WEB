@@ -147,16 +147,128 @@ test('every admin community handler denies non-admin sessions before DB or Blob 
     }
   }
 })
-test('private media URL cannot point to another store or an arbitrary server', async () => {
-  const old = process.env.COMMUNITY_BLOB_READ_WRITE_TOKEN
-  process.env.COMMUNITY_BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_mbestore_test'
-  try {
-    const media = load('lib/community/media.ts', {
-      './validation': validation, '@vercel/blob': { head: async () => ({ contentType: 'image/jpeg', size: 100 }) },
-    })
-    await assert.rejects(() => media.validateMedia('https://evil.test/community/a.jpg', 'IMAGE'))
-    await assert.rejects(() => media.validateMedia('https://other.private.blob.vercel-storage.com/community/a.jpg', 'IMAGE'))
-    assert.equal(await media.validateMedia('https://mbestore.private.blob.vercel-storage.com/community/a.jpg', 'IMAGE'), 'https://mbestore.private.blob.vercel-storage.com/community/a.jpg')
-    await assert.rejects(() => media.validateMedia('https://mbestore.private.blob.vercel-storage.com/community/a.jpg', 'VIDEO'))
-  } finally { if (old === undefined) delete process.env.COMMUNITY_BLOB_READ_WRITE_TOKEN; else process.env.COMMUNITY_BLOB_READ_WRITE_TOKEN = old }
-})
+function withCommunityEnv(work) {
+  return async () => {
+    const old = process.env.BLOB_STORE_ID
+    process.env.BLOB_STORE_ID = 'store_mbestore'
+    try { await work() }
+    finally { if (old === undefined) delete process.env.BLOB_STORE_ID; else process.env.BLOB_STORE_ID = old }
+  }
+}
+function mediaModule({ oidc = async () => 'short-lived-oidc', head = async () => ({ contentType: 'image/jpeg', size: 100 }) } = {}) {
+  return load('lib/community/media.ts', {
+    './validation': validation, '@vercel/blob': { head }, '@vercel/oidc': { getVercelOidcToken: oidc },
+  })
+}
+test('private media validates store ID, HTTPS, community path, MIME and size', withCommunityEnv(async () => {
+  let metadata = { contentType: 'image/jpeg', size: 100 }, calls = 0
+  const media = mediaModule({ head: async (url, options) => {
+    calls++; assert.deepEqual(options, { storeId: 'mbestore', oidcToken: 'short-lived-oidc' }); return metadata
+  } })
+  const valid = 'https://mbestore.private.blob.vercel-storage.com/community/a.jpg'
+  for (const url of [
+    'https://evil.test/community/a.jpg', 'https://other.private.blob.vercel-storage.com/community/a.jpg',
+    'https://mbestore.public.blob.vercel-storage.com/community/a.jpg', valid.replace('https:', 'http:'),
+    valid.replace('/community/', '/products/'), valid + '?a=1', valid + '#x',
+    valid.replace('https://', 'https://user:pass@'), valid.replace('/a.jpg', '/../a.jpg'),
+  ]) await assert.rejects(() => media.validateMedia(url, 'IMAGE'), validation.CommunityError)
+  assert.equal(calls, 0)
+  assert.equal(await media.validateMedia(valid, 'IMAGE'), valid)
+  process.env.BLOB_STORE_ID = 'mbestore'
+  assert.equal(await media.validateMedia(valid, 'IMAGE'), valid)
+  await assert.rejects(() => media.validateMedia(valid, 'VIDEO'))
+  metadata = { contentType: 'image/jpeg', size: 10 * 1024 * 1024 + 1 }
+  await assert.rejects(() => media.validateMedia(valid, 'IMAGE'))
+  metadata = { contentType: 'video/mp4', size: 50 * 1024 * 1024 }
+  assert.equal(await media.validateMedia(valid, 'VIDEO'), valid)
+  metadata.size++
+  await assert.rejects(() => media.validateMedia(valid, 'VIDEO'))
+  metadata = { contentType: 'text/html', size: 1 }
+  await assert.rejects(() => media.validateMedia(valid, 'IMAGE'))
+}))
+test('missing store or OIDC fails closed before Blob work', withCommunityEnv(async () => {
+  let calls = 0
+  const head = async () => { calls++; throw new Error('Must not call Blob') }
+  const url = 'https://mbestore.private.blob.vercel-storage.com/community/a.jpg'
+  delete process.env.BLOB_STORE_ID
+  await assert.rejects(() => mediaModule({ head }).validateMedia(url, 'IMAGE'), e => e.status === 503)
+  process.env.BLOB_STORE_ID = 'store_mbestore'
+  for (const oidc of [async () => '', async () => { throw new Error('OIDC unavailable') }]) {
+    await assert.rejects(() => mediaModule({ head, oidc }).validateMedia(url, 'IMAGE'), e => e.status === 503)
+  }
+  assert.equal(calls, 0)
+}))
+test('ADMIN presigned uploads constrain path, put, MIME, size, expiry and private access', withCommunityEnv(async () => {
+  const sdk = require('@vercel/blob')
+  let issued, signed, calls = 0
+  const route = load('app/api/admin/community/upload/route.ts', {
+    '@/lib/community/api': { member: async (request, admin) => assert.equal(admin, true), api: async work => work() },
+    '@/lib/community/validation': validation, '@/lib/community/media': mediaModule(),
+    '@vercel/blob': {
+      issueSignedToken: async options => {
+        issued = options; calls++
+        return { delegationToken: Buffer.from(JSON.stringify({ ...options, storeId: 'mbestore' })).toString('base64url') + '.signed', clientSigningToken: 'test-key', validUntil: options.validUntil }
+      },
+      presignUrl: async (token, options) => { signed = options; return sdk.presignUrl(token, options) },
+    },
+  })
+  function request(payload, type = 'blob.generate-presigned-url') {
+    return new Request('https://mbe.test/api/admin/community/upload', { method: 'POST', body: JSON.stringify({ type, payload }) })
+  }
+  for (const [pathname, mime, size, multipart] of [['community/a.jpg', 'image/jpeg', 10, false], ['community/v.mp4', 'video/mp4', 50, true]]) {
+    const before = Date.now()
+    const result = await route.POST(request({ pathname, multipart }))
+    assert.equal(issued.storeId, 'mbestore'); assert.equal(issued.oidcToken, 'short-lived-oidc'); assert.equal(issued.token, undefined)
+    assert.equal(issued.pathname, pathname); assert.deepEqual(issued.operations, ['put'])
+    assert.ok(issued.allowedContentTypes.includes(mime)); assert.equal(issued.maximumSizeInBytes, size * 1024 * 1024)
+    assert.ok(issued.validUntil >= before + 600000 && issued.validUntil <= Date.now() + 600000)
+    assert.equal(signed.access, 'private'); assert.equal(signed.addRandomSuffix, true); assert.equal(signed.allowOverwrite, false)
+    assert.equal(result.type, 'blob.generate-presigned-url')
+    const params = result.presignedUrlPayload.params
+    assert.equal(params['vercel-blob-maximum-size-in-bytes'], String(size * 1024 * 1024))
+    assert.equal(params['vercel-blob-add-random-suffix'], 'true'); assert.equal(params['vercel-blob-allow-overwrite'], 'false')
+    assert.equal(params.pathname, undefined)
+    assert.ok(result.presignedUrlPayload.signature); assert.ok(result.presignedUrlPayload.delegationToken)
+    assert.equal(JSON.stringify(result).includes('test-key'), false)
+  }
+  const before = calls
+  for (const payload of [null, [], {}, { pathname: 'products/a.jpg' }, { pathname: 'community/../a.jpg' }, { pathname: 'community/a.svg' }, { pathname: 'community/a.jpg', multipart: 'true' }]) {
+    await assert.rejects(() => route.POST(request(payload)), validation.CommunityError)
+  }
+  await assert.rejects(() => route.POST(request({ pathname: 'community/a.jpg' }, 'blob.generate-client-token')))
+  assert.equal(calls, before)
+}))
+test('private media route preserves authenticated publication guards and range streaming', withCommunityEnv(async () => {
+  let user = null, query, options, reads = 0, published = false, mediaUrl = 'https://mbestore.private.blob.vercel-storage.com/community/a.jpg'
+  const media = mediaModule()
+  const route = load('app/api/community/media/[id]/route.ts', {
+    '@/lib/community/api': { member: async () => { if (!user) throw new validation.CommunityError('No autorizado', 401); return user } },
+    '@/lib/community/validation': validation, '@/lib/community/media': media,
+    '@/lib/prisma': { prisma: { communityPost: { findFirst: async ({ where }) => {
+      query = where
+      if (where.published && !published) return null
+      return { mediaUrl }
+    } } } },
+    '@vercel/blob': { get: async (url, value) => {
+      reads++; options = value
+      return { stream: new Blob(['x']).stream(), blob: { contentType: 'image/jpeg' }, headers: new Headers({ 'content-range': 'bytes 0-0/1', 'content-length': '1' }) }
+    } },
+  })
+  const request = new Request('https://mbe.test/api/community/media/p', { headers: { range: 'bytes=0-0' } }), params = { params: { id: 'p' } }
+  assert.equal((await route.GET(request, params)).status, 401)
+  user = { role: 'CLIENTE' }
+  assert.equal((await route.GET(request, params)).status, 404)
+  assert.deepEqual(query, { id: 'p', published: true }); assert.equal(reads, 0)
+  user = { role: 'ADMIN' }
+  const response = await route.GET(request, params)
+  assert.equal(response.status, 206); assert.equal(response.headers.get('Cache-Control'), 'private, no-store')
+  assert.deepEqual(options, { access: 'private', storeId: 'mbestore', oidcToken: 'short-lived-oidc', headers: { Range: 'bytes=0-0' } })
+  assert.deepEqual(query, { id: 'p' })
+  published = true; user = { role: 'CLIENTE' }
+  assert.equal((await route.GET(request, params)).status, 206)
+  assert.deepEqual(query, { id: 'p', published: true })
+  const before = reads
+  mediaUrl = 'https://other.private.blob.vercel-storage.com/community/a.jpg'
+  assert.equal((await route.GET(request, params)).status, 400)
+  assert.equal(reads, before)
+}))
