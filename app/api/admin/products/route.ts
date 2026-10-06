@@ -79,7 +79,7 @@ function normalizeDescription(value: unknown): string | null {
 }
 
 function normalizeCategoryId(value: unknown): string {
-  return String(value || '').trim()
+  return typeof value === 'string' ? value.trim() : ''
 }
 
 function normalizePrice(value: unknown): number {
