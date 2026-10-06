@@ -312,20 +312,31 @@ export function ProductForm({ product, categories }: ProductFormProps) {
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-medium">Categoria</label>
-          <select
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-            className="w-full rounded-lg border border-border bg-secondary px-4 py-3 focus:outline-none focus:ring-2 focus:ring-ring"
-            required
-          >
-            <option value="">Seleccionar categoria</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
+          {categories.length > 0 ? (
+            <>
+              <label htmlFor="product-category" className="mb-2 block text-sm font-medium">Categoría</label>
+              <select
+                id="product-category"
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                className="w-full rounded-lg border border-border bg-secondary px-4 py-3 focus:outline-none focus:ring-2 focus:ring-ring"
+                required
+              >
+                <option value="">Seleccionar categoria</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+              <Link href="/admin/categorias" className="mt-2 inline-block text-sm text-primary hover:underline">Administrar categorías</Link>
+            </>
+          ) : (
+            <div className="rounded-lg border border-border bg-secondary p-4">
+              <p className="text-sm">No hay categorías disponibles.</p>
+              <Link href="/admin/categorias" className="mt-2 inline-block text-sm text-primary hover:underline">Crear categoría</Link>
+            </div>
+          )}
         </div>
 
         <div>
@@ -500,7 +511,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
         <div className="flex flex-col gap-3 sm:flex-row">
           <button
             type="submit"
-            disabled={loading || uploading}
+            disabled={loading || uploading || categories.length === 0}
             className="flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
