@@ -18,12 +18,19 @@ const spaceMono = Space_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'MBE - Streetwear',
-  description: 'Tienda de ropa streetwear exclusiva',
+  title: 'Sitio web oficial de MBE',
+  description: 'Sitio web oficial de MBE. Streetwear, drops exclusivos y acceso a MBE Community',
+  openGraph: {
+    title: 'Sitio web oficial de MBE',
+    description: 'Sitio web oficial de MBE. Streetwear, drops exclusivos y acceso a MBE Community',
+    siteName: 'MBE',
+    type: 'website',
+    locale: 'es_MX',
+  },
   icons: {
     icon: '/ICONO_LOGO.png',
     shortcut: '/ICONO_LOGO.png',
-    apple: '/apple-icon.png',
+    apple: '/ICONO_LOGO.png',
   },
 }
 

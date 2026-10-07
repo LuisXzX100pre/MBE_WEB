@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { socialLinks } from '@/lib/social-links'
 import { Instagram } from 'lucide-react'
 
 function TikTokIcon({ className = 'w-5 h-5' }: { className?: string }) {
@@ -29,7 +30,7 @@ export function Footer() {
 
             <div className="mt-4 flex gap-4">
               <a
-                href="https://www.instagram.com/mbemighty?igsh=MTM4NTB3ZXdxZmlyeQ=="
+                href={socialLinks.instagram.href}
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Instagram de MBE"
@@ -39,7 +40,7 @@ export function Footer() {
               </a>
 
               <a
-                href="https://www.tiktok.com/@mbemighty?_r=1&_t=ZS-95a3Ikf5hum"
+                href={socialLinks.tiktok.href}
                 target="_blank"
                 rel="noreferrer"
                 aria-label="TikTok de MBE"
