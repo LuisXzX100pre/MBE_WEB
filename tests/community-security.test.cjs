@@ -28,7 +28,7 @@ function wheelStore() {
   }
   const prisma = { ...tx, $transaction: async work => work(tx) }
   const wheel = load('lib/community/wheel.ts', {
-    '@/lib/prisma': { prisma }, './validation': validation,
+    '@/lib/prisma': { prisma }, './validation': validation, './wheel-config': load('lib/community/wheel-config.ts', { './validation': validation }),
     '@prisma/client': { Prisma: { PrismaClientKnownRequestError: KnownError } },
     crypto: { randomInt: max => { draws++; return Math.min(2, max - 1) } },
   })

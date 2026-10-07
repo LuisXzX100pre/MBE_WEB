@@ -222,7 +222,7 @@ test('access form has prefill but only submit performs POST; LIVE CTA stays in s
   const source = fs.readFileSync('components/community/access-form.tsx', 'utf8'); assert.ok(!source.includes('useEffect'))
   const { CommunitySection } = load('components/store/community-section.tsx', { 'next/link': ({ children, href }) => React.createElement('a', { href }, children) })
   const cta = renderToStaticMarkup(React.createElement(CommunitySection, { communityCount: 1 }))
-  assert.ok(cta.includes('href="/comunidad"')); assert.ok(cta.includes('LIVE')); assert.ok(cta.includes('motion-safe:animate-pulse'))
+  assert.ok(cta.includes('href="/comunidad"')); assert.ok(!cta.includes('LIVE')); assert.ok(cta.includes('bg-red-500')); assert.ok(cta.includes('motion-safe:animate-pulse'))
 })
 test('schema keeps independent memberships, unique hashes/redemptions and database usage checks', () => {
   const { Prisma } = require('@prisma/client')
