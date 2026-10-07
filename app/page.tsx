@@ -8,7 +8,8 @@ import { CommunitySection } from '@/components/store/community-section'
 import {
   HomeHeroSwitcher,
 } from '@/components/store/home-hero-switcher'
-import { type HomeHeroSlide } from '@/components/store/home-hero-carousel'
+import { buildHeroSlides } from '@/lib/home-hero-slides'
+import { liveCampaignWhere } from '@/lib/community/wheel'
 import { prisma } from '@/lib/prisma'
 import { releaseExpiredDrops } from '@/lib/release-drops'
 import { isWithinDropWindow } from '@/lib/drop'
@@ -40,6 +41,7 @@ async function getPromoProducts() {
     include: {
       images: { orderBy: { order: 'asc' } },
       category: true,
+      sizes: true,
     },
     take: 3,
     orderBy: { createdAt: 'desc' },
@@ -128,43 +130,6 @@ async function getRecentlyReleasedDrop() {
   return candidates.find((product) => isWithinDropWindow(product.releaseAt)) || null
 }
 
-function buildHeroSlides(
-  promoProducts: Awaited<ReturnType<typeof getPromoProducts>>
-): HomeHeroSlide[] {
-  const slides: HomeHeroSlide[] = []
-
-  for (const product of promoProducts) {
-    slides.push({
-      id: `promo-${product.id}`,
-      type: 'promo',
-      eyebrow: product.category.name,
-      title: product.name,
-      subtitle:
-        product.description?.trim() ||
-        `Descubre ${product.name} y explora la nueva propuesta de ${product.category.name}.`,
-      priceText: `$${Number(product.price).toFixed(2)} MXN`,
-      image: product.images[0]?.url || null,
-      ctaHref: `/productos/${product.id}`,
-      ctaLabel: 'Ver producto',
-    })
-  }
-
-  if (slides.length === 0) {
-    slides.push({
-      id: 'brand-default',
-      type: 'promo',
-      eyebrow: 'MBE',
-      title: 'NUEVA COLECCIÓN',
-      subtitle:
-        'Descubre nuestras piezas, próximos drops y productos destacados de la marca.',
-      ctaHref: '/productos',
-      ctaLabel: 'Explorar ahora',
-    })
-  }
-
-  return slides
-}
-
 export default async function HomePage() {
   await releaseExpiredDrops()
 
@@ -177,7 +142,11 @@ export default async function HomePage() {
     prisma.communityMembership.count(),
   ])
 
-  const heroSlides = buildHeroSlides(promoProducts)
+  const communityCampaign = !nextDrop && !recentDrop ? await prisma.communityWheelCampaign.findFirst({
+    where: liveCampaignWhere(), orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    select: { name: true, title: true, subtitle: true, description: true, note: true },
+  }) : null
+  const heroSlides = buildHeroSlides(promoProducts, communityCampaign)
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

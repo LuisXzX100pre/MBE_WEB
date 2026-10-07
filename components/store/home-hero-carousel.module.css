@@ -1,0 +1,5 @@
+.enter { animation: mbeCarouselEnter 350ms ease-out; }
+.enterBack { animation: mbeCarouselBack 350ms ease-out; }
+@keyframes mbeCarouselEnter { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes mbeCarouselBack { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) { .enter, .enterBack { animation: none; } }
