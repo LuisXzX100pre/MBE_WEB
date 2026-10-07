@@ -235,3 +235,121 @@ test('schema keeps independent memberships, unique hashes/redemptions and databa
   assert.ok(sql.includes('"uses" BETWEEN 0 AND "maxUses"')); assert.ok(sql.includes('ON DELETE RESTRICT'))
   assert.ok(!/DELETE FROM|UPDATE "CommunityMembership"|DROP TABLE/.test(sql))
 })
+
+// Exercise the real manager handlers/state and transport without a browser or live DB.
+async function mountInvites(request) {
+  const slots = [], effects = []; let index = 0, mounted = false
+  const hooks = {
+    useState(initial) {
+      const slot = index++
+      if (!(slot in slots)) slots[slot] = initial
+      return [slots[slot], value => { slots[slot] = typeof value === 'function' ? value(slots[slot]) : value }]
+    },
+    useRef(initial) { const slot = index++; if (!(slot in slots)) slots[slot] = { current: initial }; return slots[slot] },
+    useEffect(effect) { if (!mounted) effects.push(effect) },
+  }
+  const { InvitesManager } = load('components/admin/community/invites-manager.tsx', {
+    react: hooks, './request': { communityRequest: request, field: '', action: '' },
+  })
+  let tree
+  function render() { index = 0; tree = InvitesManager(); mounted = true; return tree }
+  function elements(node = tree) {
+    if (!React.isValidElement(node)) return []
+    return [node, ...React.Children.toArray(node.props.children).flatMap(elements)]
+  }
+  render(); effects.forEach(effect => effect()); await new Promise(resolve => setImmediate(resolve)); render()
+  return {
+    render, elements,
+    html: () => renderToStaticMarkup(render()),
+    button: label => elements().find(node => node.type === 'button' && node.props.children === label),
+    field: label => elements().find(node => node.type === 'label' && React.Children.toArray(node.props.children).some(child => typeof child === 'string' && child.trim() === label)).props.children.find(node => React.isValidElement(node) && node.type === 'input'),
+    submit: () => elements().find(node => node.type === 'form').props.onSubmit({ preventDefault() {} }),
+  }
+}
+function adminInviteRoutes(s) {
+  const dependencies = { '@/lib/community/api': guard(s, { id: 'admin', role: 'ADMIN' }), '@/lib/community/validation': validation, '@/lib/community/invites': s.service }
+  return {
+    collection: load('app/api/admin/community/invites/route.ts', dependencies),
+    item: load('app/api/admin/community/invites/[id]/route.ts', dependencies),
+  }
+}
+test('POST and PATCH expose matching invite envelopes without leaking hash or code on edit', async () => {
+  const s = store(), routes = adminInviteRoutes(s)
+  const created = await routes.collection.POST(new Request('https://mbe.test/api/admin/community/invites', {
+    method: 'POST', body: JSON.stringify({ name: 'Regresión campaña', type: 'CAMPAIGN', maxUses: 25, code: 'TESTCODE123' }),
+  }))
+  assert.equal(created.status, 200)
+  const result = await created.json()
+  assert.deepEqual(Object.keys(result).sort(), ['code', 'invite'])
+  const response = await routes.item.PATCH(new Request('https://mbe.test/api/admin/community/invites/' + result.invite.id, {
+    method: 'PATCH', body: JSON.stringify({ name: 'Campaña actualizada' }),
+  }), { params: { id: result.invite.id } })
+  assert.equal(response.status, 200)
+  const updated = await response.json()
+  assert.deepEqual(Object.keys(updated), ['invite'])
+  assert.equal(updated.invite.id, result.invite.id); assert.equal(updated.invite.name, 'Campaña actualizada')
+  assert.equal(updated.invite.codeHash, undefined); assert.equal(updated.code, undefined)
+})
+for (const [label, payload, expected] of [
+  ['Expiración opcional (hora local)', { expiresAt: '2099-01-15T12:30' }, 'expiresAt'],
+  ['Etiqueta / campaña', { name: 'Campaña editada' }, 'name'],
+  ['Activo', { active: false }, 'active'],
+  ['Máximo de usos', { maxUses: 30 }, 'maxUses'],
+]) {
+  test('used campaign PATCH updates manager immediately and preserves redemption: ' + expected, async () => {
+    const s = store(), { invite } = await create(s)
+    await s.service.redeemAccess('member', 'WHITEIRIS')
+    const history = structuredClone([...s.state.redemptions.values()]), membership = structuredClone([...s.state.memberships.values()])
+    const routes = adminInviteRoutes(s), originalFetch = global.fetch, methods = [], responses = []
+    global.fetch = async (url, options) => {
+      methods.push(options.method)
+      const request = new Request('https://mbe.test' + url, options)
+      const response = options.method === 'GET' ? await routes.collection.GET(request) : await routes.item.PATCH(request, { params: { id: invite.id } })
+      responses.push(response.status); return response
+    }
+    try {
+      const { communityRequest } = load('components/admin/community/request.ts')
+      const ui = await mountInvites(communityRequest)
+      ui.button('Editar').props.onClick(); ui.render()
+      const value = payload[expected]
+      ui.field(label).props.onChange({ target: { value: String(value), checked: value } }); ui.render()
+      await ui.submit(); ui.render()
+      assert.deepEqual(methods, ['GET', 'PATCH']); assert.deepEqual(responses, [200, 200])
+      const article = ui.elements().find(node => node.type === 'article')
+      const html = renderToStaticMarkup(article), saved = s.state.invites.get(invite.id)
+      if (expected === 'expiresAt') { assert.equal(saved.expiresAt.toISOString(), new Date(value).toISOString()); assert.ok(html.includes(saved.expiresAt.toLocaleString())) }
+      if (expected === 'name') assert.ok(html.includes(value))
+      if (expected === 'active') { assert.equal(saved.active, false); assert.ok(html.includes('INACTIVO')) }
+      if (expected === 'maxUses') { assert.equal(saved.maxUses, 30); assert.ok(html.includes('1 / 30')) }
+      assert.equal(saved.uses, 1)
+      assert.deepEqual([...s.state.redemptions.values()], history); assert.deepEqual([...s.state.memberships.values()], membership)
+      assert.ok(!ui.elements().some(node => node.props.role === 'alert'))
+      const deleted = await routes.item.DELETE(new Request('https://mbe.test/api/admin/community/invites/' + invite.id, { method: 'DELETE' }), { params: { id: invite.id } })
+      assert.equal(deleted.status, 409); assert.deepEqual([...s.state.redemptions.values()], history)
+    } finally { global.fetch = originalFetch }
+  })
+}
+test('active toggle consumes PATCH invite envelope and replaces the list item', async () => {
+  const s = store(), { invite } = await create(s), routes = adminInviteRoutes(s)
+  const ui = await mountInvites(async (url, method = 'GET', data) => {
+    const request = new Request('https://mbe.test' + url, { method, ...(data ? { body: JSON.stringify(data) } : {}) })
+    const response = method === 'GET' ? await routes.collection.GET(request) : await routes.item.PATCH(request, { params: { id: invite.id } })
+    assert.equal(response.status, 200); return response.json()
+  })
+  await ui.button('Desactivar').props.onClick(); ui.render()
+  assert.ok(ui.html().includes('INACTIVO')); assert.ok(ui.button('Activar'))
+})
+for (const operation of ['save', 'toggle']) {
+  test('malformed successful response shows controlled error without changing list: ' + operation, async () => {
+    const s = store(), { invite } = await create(s)
+    for (const result of [null, {}, { invite: null }, { invite: {} }, { invite: { id: 'wrong-id' } }]) {
+      const ui = await mountInvites(async (url, method = 'GET') => method === 'GET' ? s.service.listInvites() : result)
+      if (operation === 'save') { ui.button('Editar').props.onClick(); ui.render(); await ui.submit() }
+      else await ui.button('Desactivar').props.onClick()
+      const html = ui.html()
+      assert.ok(html.includes('La respuesta no contiene una invitación válida.'))
+      assert.ok(html.includes(invite.name)); assert.ok(!html.includes('TypeError'))
+      assert.ok(ui.button('Desactivar')); assert.equal(s.state.invites.get(invite.id).active, true)
+    }
+  })
+}

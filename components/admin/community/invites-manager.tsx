@@ -3,6 +3,14 @@ import { useEffect, useRef, useState } from 'react'
 import { communityRequest, field, action } from './request'
 type Invite = { id: string; name: string; type: 'INDIVIDUAL' | 'CAMPAIGN'; maxUses: number; uses: number; active: boolean; expiresAt: string | null; createdAt: string }
 type Redemption = { id: string; redeemedAt: string; user: { username: string } }
+type InviteResponse = { invite: Invite; code?: string }
+function responseInvite(result: InviteResponse, expectedId?: string) {
+  const invite = result?.invite
+  if (!invite || typeof invite.id !== 'string' || !invite.id || (expectedId && invite.id !== expectedId)) {
+    throw new Error('La respuesta no contiene una invitación válida. Intenta nuevamente.')
+  }
+  return invite
+}
 const empty = { name: '', type: 'INDIVIDUAL' as Invite['type'], code: '', maxUses: 1, active: true, expiresAt: '' }
 function localDate(value: string | null) {
   if (!value) return ''
@@ -39,14 +47,16 @@ export function InvitesManager() {
     event.preventDefault()
     await run(async () => {
       const payload = { ...form, expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null }
-      const result = await communityRequest<{ invite: Invite; code?: string }>('/api/admin/community/invites' + (editing ? '/' + editing : ''), editing ? 'PATCH' : 'POST', payload)
-      setInvites(previous => editing ? previous.map(invite => invite.id === result.invite.id ? result.invite : invite) : [result.invite, ...previous])
+      const result = await communityRequest<InviteResponse>('/api/admin/community/invites' + (editing ? '/' + editing : ''), editing ? 'PATCH' : 'POST', payload)
+      const updated = responseInvite(result, editing || undefined)
+      setInvites(previous => editing ? previous.map(invite => invite.id === updated.id ? updated : invite) : [updated, ...previous])
       setRevealed(result.code || ''); reset()
     })
   }
   async function toggle(invite: Invite) {
     await run(async () => {
-      const updated = await communityRequest<Invite>('/api/admin/community/invites/' + invite.id, 'PATCH', { active: !invite.active })
+      const result = await communityRequest<InviteResponse>('/api/admin/community/invites/' + invite.id, 'PATCH', { active: !invite.active })
+      const updated = responseInvite(result, invite.id)
       setInvites(previous => previous.map(item => item.id === updated.id ? updated : item))
     })
   }
