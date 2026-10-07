@@ -2,15 +2,24 @@ import 'server-only'
 import { NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { getCurrentUser } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 import { CommunityError } from './validation'
-export async function member(request?: Request, admin = false) {
+export async function authenticated(request?: Request) {
   if (request && !['GET', 'HEAD'].includes(request.method)) {
     const origin = request.headers.get('origin')
     if (origin && origin !== new URL(request.url).origin) throw new CommunityError('Origen no permitido', 403)
   }
   const user = await getCurrentUser()
   if (!user) throw new CommunityError('Inicia sesion para continuar', 401)
-  if (admin && user.role !== 'ADMIN') throw new CommunityError('Acceso denegado', 403)
+  return user
+}
+export async function member(request?: Request, admin = false) {
+  const user = await authenticated(request)
+  if (admin) {
+    if (user.role !== 'ADMIN') throw new CommunityError('Acceso denegado', 403)
+  } else if (!await prisma.communityMembership.findUnique({ where: { userId: user.id }, select: { id: true } })) {
+    throw new CommunityError('Necesitas acceso a MBE Community', 403)
+  }
   return user
 }
 export async function api(work: () => Promise<unknown>) {

@@ -11,8 +11,9 @@ import type { Post } from '@/lib/community/types'
 export const dynamic = 'force-dynamic'
 
 export default async function CommunityPage() {
-  const user = await enterCommunity()
+  const { user, membership } = await enterCommunity()
   if (!user) redirect('/login?next=/comunidad')
+  if (!membership) redirect('/comunidad/acceso')
   const feed = await publishedPosts()
 
   return (

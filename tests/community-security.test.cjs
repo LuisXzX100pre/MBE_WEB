@@ -79,6 +79,7 @@ test('API guard requires session, ADMIN and same origin for mutations', async ()
   let user = null
   const { member } = load('lib/community/api.ts', {
     '@/lib/auth': { getCurrentUser: async () => user }, './validation': validation,
+    '@/lib/prisma': { prisma: { communityMembership: { findUnique: async () => null } } },
     'next/server': { NextResponse: { json: Response.json } },
     '@prisma/client': { Prisma: { PrismaClientKnownRequestError: KnownError } },
   })
@@ -129,6 +130,7 @@ test('event tickets are queried using session identity only', async () => {
 test('every admin community handler denies non-admin sessions before DB or Blob work', async () => {
   const guard = load('lib/community/api.ts', {
     '@/lib/auth': { getCurrentUser: async () => ({ id: 'u', role: 'CLIENTE' }) },
+    '@/lib/prisma': { prisma: {} },
     './validation': validation, 'next/server': { NextResponse: { json: Response.json } },
     '@prisma/client': { Prisma: { PrismaClientKnownRequestError: KnownError } },
   })
@@ -137,7 +139,7 @@ test('every admin community handler denies non-admin sessions before DB or Blob 
     const route = load(file, {
       '@/lib/community/api': guard, '@/lib/community/validation': validation,
       '@/lib/prisma': { prisma: {} }, '@/lib/community/posts': {}, '@/lib/community/campaigns': {},
-      '@/lib/community/events': {}, '@/lib/community/media': {}, '@vercel/blob/client': {},
+      '@/lib/community/events': {}, '@/lib/community/invites': {}, '@/lib/community/media': {}, '@vercel/blob/client': {},
     })
     for (const method of ['GET', 'POST', 'PATCH', 'DELETE']) {
       if (route[method]) {

@@ -2,16 +2,20 @@ import 'server-only'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-/** Records only the authenticated session owner, never a browser-supplied ID. */
-export async function enterCommunity() {
+export async function communityAccess() {
   const user = await getCurrentUser()
-  if (!user) return null
+  const membership = user ? await prisma.communityMembership.findUnique({ where: { userId: user.id } }) : null
+  return { user, membership }
+}
 
-  const now = new Date()
-  await prisma.communityMembership.upsert({
-    where: { userId: user.id },
-    update: { lastSeenAt: now },
-    create: { userId: user.id, lastSeenAt: now },
-  })
-  return user
+/** Visiting only updates an existing member; it never grants access. */
+export async function enterCommunity() {
+  const access = await communityAccess()
+  if (access.membership) {
+    const updated = await prisma.communityMembership.updateMany({
+      where: { userId: access.user!.id }, data: { lastSeenAt: new Date() },
+    })
+    if (!updated.count) access.membership = null
+  }
+  return access
 }

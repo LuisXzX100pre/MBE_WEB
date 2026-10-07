@@ -17,12 +17,12 @@ function membershipStore() {
   const rows = new Map()
   let session = { id: 'session-user', username: 'inside' }, lastCall
   const prisma = { communityMembership: {
-    upsert: async input => {
+    findUnique: async ({ where }) => rows.get(where.userId) || null,
+    updateMany: async input => {
       lastCall = input
-      const previous = rows.get(input.where.userId)
-      const row = previous ? { ...previous, ...input.update } : { id: 'm-' + input.create.userId, joinedAt: new Date(), ...input.create }
-      rows.set(input.where.userId, row)
-      return row
+      const row = rows.get(input.where.userId)
+      if (!row) return { count: 0 }
+      Object.assign(row, input.data); return { count: 1 }
     },
   } }
   const { enterCommunity } = load('lib/community/membership.ts', {
@@ -30,38 +30,30 @@ function membershipStore() {
   })
   return { enterCommunity, rows, setSession: user => { session = user }, get lastCall() { return lastCall } }
 }
-
-test('repeated and concurrent visits by one session create one membership', async () => {
+test('repeated and concurrent visits never grant membership', async () => {
   const store = membershipStore()
-  await store.enterCommunity()
-  const joinedAt = store.rows.get('session-user').joinedAt
-  const seenAt = store.rows.get('session-user').lastSeenAt
-  await new Promise(resolve => setTimeout(resolve, 5))
-  await Promise.all(Array.from({ length: 10 }, () => store.enterCommunity()))
-  assert.equal(store.rows.size, 1)
-  assert.equal(store.rows.get('session-user').joinedAt, joinedAt)
-  assert.ok(store.rows.get('session-user').lastSeenAt >= seenAt)
-  assert.deepEqual(Object.keys(store.lastCall.update), ['lastSeenAt'])
+  const results = await Promise.all(Array.from({ length: 10 }, () => store.enterCommunity()))
+  assert.equal(store.rows.size, 0)
+  assert.ok(results.every(result => result.user.id === 'session-user' && result.membership === null))
 })
-test('different authenticated users receive separate memberships', async () => {
-  const store = membershipStore()
-  await store.enterCommunity()
-  store.setSession({ id: 'second-user', username: 'second' })
-  await store.enterCommunity()
-  assert.equal(store.rows.size, 2)
-  assert.ok(store.rows.has('session-user') && store.rows.has('second-user'))
+test('existing membership keeps joinedAt while lastSeenAt advances', async () => {
+  const store = membershipStore(), joinedAt = new Date('2026-01-01')
+  store.rows.set('session-user', { id: 'm', userId: 'session-user', joinedAt, lastSeenAt: joinedAt })
+  const result = await store.enterCommunity()
+  assert.equal(result.membership.joinedAt, joinedAt)
+  assert.ok(result.membership.lastSeenAt > joinedAt)
+  assert.deepEqual(Object.keys(store.lastCall.data), ['lastSeenAt'])
 })
 test('userId comes from session and supplied arguments cannot override it', async () => {
   const store = membershipStore()
+  store.rows.set('session-user', { id: 'm', userId: 'session-user' })
   await store.enterCommunity({ userId: 'forged-user' })
   assert.equal(store.lastCall.where.userId, 'session-user')
-  assert.equal(store.lastCall.create.userId, 'session-user')
   assert.ok(!store.rows.has('forged-user'))
 })
 test('anonymous visitors cannot create memberships', async () => {
-  const store = membershipStore()
-  store.setSession(null)
-  assert.equal(await store.enterCommunity(), null)
+  const store = membershipStore(); store.setSession(null)
+  assert.deepEqual(await store.enterCommunity(), { user: null, membership: null })
   assert.equal(store.rows.size, 0)
 })
 
@@ -100,12 +92,12 @@ test('Home counts memberships server-side and renders Community before the exist
   assert.ok(html.indexOf('Comunidad Adentro') < html.indexOf('DROP HERO'))
   assert.equal(html.match(/Comunidad Adentro/g).length, 1)
 })
-test('Community page records authenticated entry and redirects anonymous visitors', async () => {
-  let user = null, entries = 0, feedCalls = 0
+test('Community page gates content by membership and redirects anonymous visitors', async () => {
+  let user = null, membership = null, entries = 0, feedCalls = 0
   const empty = () => null
   const { default: CommunityPage } = load('app/comunidad/page.tsx', {
     'next/navigation': { redirect: location => { throw new Error(location) } },
-    '@/lib/community/membership': { enterCommunity: async () => { entries++; return user } },
+    '@/lib/community/membership': { enterCommunity: async () => { entries++; return { user, membership } } },
     '@/lib/community/posts': { publishedPosts: async () => { feedCalls++; return { posts: [], nextCursor: null } } },
     '@/components/store/header': { Header: empty }, '@/components/store/footer': { Footer: empty },
     '@/components/community/community-feed': { CommunityFeed: empty },
@@ -115,9 +107,12 @@ test('Community page records authenticated entry and redirects anonymous visitor
   await assert.rejects(() => CommunityPage(), /login\?next=\/comunidad/)
   assert.equal(feedCalls, 0)
   user = { id: 'session-user', username: 'member' }
+  await assert.rejects(() => CommunityPage(), /comunidad\/acceso/)
+  assert.equal(feedCalls, 0)
+  membership = { id: 'm' }
   const html = renderToStaticMarkup(await CommunityPage())
   assert.ok(html.includes('Bienvenido adentro, member'))
-  assert.equal(entries, 2); assert.equal(feedCalls, 1)
+  assert.equal(entries, 3); assert.equal(feedCalls, 1)
 })
 test('Prisma enforces unique membership per user and optional User relation', () => {
   const { Prisma } = require('@prisma/client')
