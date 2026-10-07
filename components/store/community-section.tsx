@@ -23,14 +23,13 @@ export function CommunitySection({ communityCount }: { communityCount: number })
           <Link
             href="/comunidad"
             prefetch={false}
-            className="inline-flex min-h-16 items-center justify-center gap-4 border border-[#a33b50] bg-[#761b2b] px-8 py-5 text-xs font-bold uppercase tracking-[0.2em] transition-colors hover:bg-[#942338] sm:px-10 sm:text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+            className="inline-flex min-h-11 items-center justify-center gap-4 border border-white/30 px-6 py-3 text-[10px] font-bold uppercase tracking-[0.2em] transition-colors hover:bg-white hover:text-black sm:text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
           >
-            <span className="inline-flex items-center gap-2 text-[9px] tracking-[0.15em]"><span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-red-200 motion-safe:animate-pulse motion-safe:[animation-duration:3s]" />LIVE</span>
             Comunidad Adentro
             <ArrowUpRight size={16} aria-hidden="true" />
           </Link>
           <p className="mt-3 flex items-center justify-center gap-2 text-[10px] text-white/40 sm:text-xs">
-            <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-current motion-safe:animate-pulse motion-safe:[animation-duration:3s]" />
+            <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500 motion-safe:animate-pulse motion-safe:[animation-duration:3s]" />
             <span>{membershipLabel}</span>
           </p>
         </div>

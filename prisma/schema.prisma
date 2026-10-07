@@ -256,6 +256,11 @@ model CommunityComment {
 }
 
 model CommunityWheelCampaign {
+  title        String?
+  subtitle     String?
+  description  String?
+  note         String?
+  prizeWeights Json?
   id        String               @id @default(cuid())
   name      String
   active    Boolean              @default(false)

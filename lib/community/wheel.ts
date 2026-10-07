@@ -4,11 +4,11 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { CommunityError } from './validation'
 
-// Change weights here for future campaigns, without allowing browser-supplied prizes.
-export const wheelPrizes = [{ percent: 2, weight: 1 }, { percent: 4, weight: 1 }, { percent: 5, weight: 1 }, { percent: 10, weight: 1 }] as const
-export function choosePrize(draw = randomInt) {
-  let value = draw(wheelPrizes.reduce((sum, p) => sum + p.weight, 0))
-  for (const prize of wheelPrizes) { if (value < prize.weight) return prize.percent; value -= prize.weight }
+import { prizeConfig, wheelPrizes } from './wheel-config'
+export { wheelPrizes } from './wheel-config'
+export function choosePrize(draw = randomInt, prizes = wheelPrizes) {
+  let value = draw(prizes.reduce((sum, p) => sum + p.weight, 0))
+  for (const prize of prizes) { if (value < prize.weight) return prize.percent; value -= prize.weight }
   throw new Error('Invalid wheel weights')
 }
 export function liveCampaignWhere(now = new Date()): Prisma.CommunityWheelCampaignWhereInput {
@@ -32,7 +32,7 @@ export async function spinWheel(userId: string) {
         if (!campaign) throw new CommunityError('No hay una campana disponible', 409)
         const previous = await tx.communityWheelSpin.findUnique({ where: { userId_campaignId: { userId, campaignId: campaign.id } } })
         if (previous) return { campaign, spin: previous }
-        const spin = await tx.communityWheelSpin.create({ data: { userId, campaignId: campaign.id, discountPercent: choosePrize() } })
+        const spin = await tx.communityWheelSpin.create({ data: { userId, campaignId: campaign.id, discountPercent: choosePrize(randomInt, prizeConfig(campaign.prizeWeights)) } })
         return { campaign, spin }
       }, { isolationLevel: 'Serializable' })
     } catch (error) {

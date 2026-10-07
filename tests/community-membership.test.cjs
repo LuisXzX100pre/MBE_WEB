@@ -98,6 +98,7 @@ test('Community page gates content by membership and redirects anonymous visitor
   const { default: CommunityPage } = load('app/comunidad/page.tsx', {
     'next/navigation': { redirect: location => { throw new Error(location) } },
     '@/lib/community/membership': { enterCommunity: async () => { entries++; return { user, membership } } },
+    '@/lib/community/wheel': { wheelState: async () => ({ campaign: null, spin: null }) },
     '@/lib/community/posts': { publishedPosts: async () => { feedCalls++; return { posts: [], nextCursor: null } } },
     '@/components/store/header': { Header: empty }, '@/components/store/footer': { Footer: empty },
     '@/components/community/community-feed': { CommunityFeed: empty },
