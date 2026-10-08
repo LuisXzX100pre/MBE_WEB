@@ -1,218 +1,30 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
-import type { ProductStatus, Size } from '@prisma/client'
+import { parseProductInput, saveProductColors, ProductEditConflict, ProductNotFound } from '@/lib/admin/product-input'
+import { productTransaction, syncProductStock } from '@/lib/product-transactions'
+import { productColorsInclude } from '@/lib/product-queries'
+import { ProductSelectionError } from '@/lib/product-variants'
 
-const SIZES: Size[] = ['S', 'M', 'L', 'XL']
-
-type NormalizedSize = {
-  size: Size
-  stock: number
+function failure(error: unknown) {
+  console.error('[admin:products]', error)
+  return NextResponse.json({ error: error instanceof Error ? error.message : 'No se pudo guardar el producto' }, { status: error instanceof ProductSelectionError || error instanceof ProductEditConflict || error instanceof ProductNotFound ? error.status : 500 })
 }
-
-type IncomingSize = {
-  size?: unknown
-  stock?: unknown
-}
-
-function normalizeStatus(value: unknown): ProductStatus {
-  if (
-    value === 'ACTIVE' ||
-    value === 'COMING_SOON' ||
-    value === 'INACTIVE'
-  ) {
-    return value
-  }
-
-  return 'ACTIVE'
-}
-
-function normalizeDropName(value: unknown): string | null {
-  const parsed = String(value || '').trim()
-  return parsed.length > 0 ? parsed : null
-}
-
-function normalizeReleaseAt(value: unknown): Date | null {
-  if (!value) return null
-
-  const parsed = new Date(String(value))
-
-  if (Number.isNaN(parsed.getTime())) {
-    throw new Error('La fecha de lanzamiento no es valida')
-  }
-
-  return parsed
-}
-
-function normalizeImages(input: unknown): string[] {
-  if (!Array.isArray(input)) return []
-
-  return input
-    .map((url: unknown) => String(url || '').trim())
-    .filter((url: string): url is string => url.length > 0)
-}
-
-function normalizeSizes(input: unknown): NormalizedSize[] {
-  const incoming: IncomingSize[] = Array.isArray(input)
-    ? input.filter((item: unknown): item is IncomingSize => {
-        return typeof item === 'object' && item !== null
-      })
-    : []
-
-  return SIZES.map((size: Size) => {
-    const found = incoming.find((item: IncomingSize) => item.size === size)
-
-    return {
-      size,
-      stock: Math.max(0, Number(found?.stock) || 0),
-    }
-  })
-}
-
-function normalizeName(value: unknown): string {
-  return String(value || '').trim()
-}
-
-function normalizeDescription(value: unknown): string | null {
-  const parsed = String(value || '').trim()
-  return parsed.length > 0 ? parsed : null
-}
-
-function normalizeCategoryId(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : ''
-}
-
-function normalizePrice(value: unknown): number {
-  return Number(value)
-}
-
 export async function POST(request: Request) {
   try {
     const user = await getCurrentUser()
+    if (!user || user.role !== 'ADMIN') return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
-    if (!user || user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-    }
-
-    const body: unknown = await request.json()
-
-    if (typeof body !== 'object' || body === null) {
-      return NextResponse.json(
-        { error: 'El cuerpo de la solicitud es invalido' },
-        { status: 400 }
-      )
-    }
-
-    const payload = body as Record<string, unknown>
-
-    const name = normalizeName(payload.name)
-    const description = normalizeDescription(payload.description)
-    const price = normalizePrice(payload.price)
-    const categoryId = normalizeCategoryId(payload.categoryId)
-    const status = normalizeStatus(payload.status)
-    const dropName = normalizeDropName(payload.dropName)
-    const releaseAt = normalizeReleaseAt(payload.releaseAt)
-    const images = normalizeImages(payload.images)
-    const sizes = normalizeSizes(payload.sizes)
-
-    const totalStock = sizes.reduce(
-      (sum: number, item: NormalizedSize) => sum + item.stock,
-      0
-    )
-
-    if (!name) {
-      return NextResponse.json(
-        { error: 'El nombre es requerido' },
-        { status: 400 }
-      )
-    }
-
-    if (!categoryId) {
-      return NextResponse.json(
-        { error: 'La categoria es requerida' },
-        { status: 400 }
-      )
-    }
-
-    if (!Number.isFinite(price) || price < 0) {
-      return NextResponse.json(
-        { error: 'El precio es invalido' },
-        { status: 400 }
-      )
-    }
-
-    if (images.length === 0) {
-      return NextResponse.json(
-        { error: 'Debes subir al menos una imagen' },
-        { status: 400 }
-      )
-    }
-
-    if (status === 'COMING_SOON' && !releaseAt) {
-      return NextResponse.json(
-        { error: 'Debes definir una fecha para un producto proximo drop' },
-        { status: 400 }
-      )
-    }
-
-    const existingCategory = await prisma.category.findUnique({
-      where: { id: categoryId },
-      select: { id: true },
+    const input = parseProductInput(await request.json())
+    if (!await prisma.category.findUnique({ where: { id: input.data.categoryId }, select: { id: true } })) return NextResponse.json({ error: 'La categoria seleccionada no existe' }, { status: 404 })
+    const product = await productTransaction(async tx => {
+      if (input.colors?.some(color => color.id)) throw new ProductSelectionError('Los colores nuevos no deben incluir ID')
+      const created = await tx.product.create({ data: { ...input.data, stock: input.stock, images: { create: input.images.map((url, order) => ({ url, order })) }, sizes: { create: input.sizes } } })
+      const id = created.id
+      await saveProductColors(tx, id, input.colors)
+      await syncProductStock(tx, id)
+      return tx.product.findUniqueOrThrow({ where: { id }, include: { images: { orderBy: { order: 'asc' } }, sizes: true, category: true, colors: productColorsInclude } })
     })
-
-    if (!existingCategory) {
-      return NextResponse.json(
-        { error: 'La categoria seleccionada no existe' },
-        { status: 404 }
-      )
-    }
-
-    const product = await prisma.product.create({
-      data: {
-        name,
-        description,
-        price,
-        stock: totalStock,
-        categoryId,
-        status,
-        dropName,
-        releaseAt,
-        images: {
-          create: images.map((url: string, index: number) => ({
-            url,
-            order: index,
-          })),
-        },
-        sizes: {
-          create: sizes.map((item: NormalizedSize) => ({
-            size: item.size,
-            stock: item.stock,
-          })),
-        },
-      },
-      include: {
-        images: {
-          orderBy: {
-            order: 'asc',
-          },
-        },
-        sizes: true,
-        category: true,
-      },
-    })
-
     return NextResponse.json(product, { status: 201 })
-  } catch (error) {
-    console.error('[admin:products:create]', error)
-
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : 'No se pudo crear el producto',
-      },
-      { status: 500 }
-    )
-  }
+  } catch (error) { return failure(error) }
 }

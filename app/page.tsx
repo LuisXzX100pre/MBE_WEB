@@ -1,3 +1,4 @@
+import { productColorsInclude } from '@/lib/product-queries'
 import Link from 'next/link'
 import Image from 'next/image'
 import { ArrowRight } from 'lucide-react'
@@ -27,6 +28,7 @@ async function getFeaturedProducts() {
       images: { orderBy: { order: 'asc' } },
       category: true,
       sizes: true,
+      colors: productColorsInclude,
     },
     take: 8,
     orderBy: { createdAt: 'desc' },
@@ -42,6 +44,7 @@ async function getPromoProducts() {
       images: { orderBy: { order: 'asc' } },
       category: true,
       sizes: true,
+      colors: productColorsInclude,
     },
     take: 3,
     orderBy: { createdAt: 'desc' },
@@ -75,6 +78,8 @@ async function getNextDrop() {
       dropName: true,
       price: true,
       releaseAt: true,
+      homeHeroImageUrl: true,
+      colors: productColorsInclude,
       category: {
         select: {
           name: true,
@@ -109,6 +114,8 @@ async function getRecentlyReleasedDrop() {
       dropName: true,
       price: true,
       releaseAt: true,
+      homeHeroImageUrl: true,
+      colors: productColorsInclude,
       category: {
         select: {
           name: true,

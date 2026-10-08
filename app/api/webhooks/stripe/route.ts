@@ -1,3 +1,4 @@
+import { readCartSnapshotMetadata } from '@/lib/checkout-variants'
 // app/api/webhooks/stripe/route.ts
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
@@ -21,6 +22,8 @@ type StoredCartItem = {
   productName?: string
   quantity: number
   unitPrice: number
+  productColorId?: string | null
+  colorName?: string | null
   size?: string | null
 }
 
@@ -290,7 +293,7 @@ async function createFallbackOrderFromSucceededPayment(
   const shippingQuote = parseJson<StoredShippingQuote>(
     paymentIntent.metadata.shippingQuoteJson
   )
-  const cartItems = parseCartSnapshot(paymentIntent.metadata.cartSnapshot)
+  const cartItems = parseCartSnapshot(readCartSnapshotMetadata(paymentIntent.metadata))
 
   if (!userId || cartItems.length === 0) {
     throw new Error('Faltan datos para crear la orden fallback desde Stripe')
@@ -346,6 +349,8 @@ async function createFallbackOrderFromSucceededPayment(
             unitPrice: item.unitPrice,
             size: item.size ? (item.size as any) : undefined,
             productId: item.productId,
+            productColorId: item.productColorId || null,
+            colorName: item.colorName || null,
           })),
         },
       },

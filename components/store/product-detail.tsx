@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { activeColors, defaultColor, colorStock, productStock, type ColorVariant } from '@/lib/product-variants'
 import { useCart } from '@/contexts/cart-context'
 import {
   ShoppingBag,
@@ -24,6 +25,7 @@ interface ProductSize {
 }
 
 interface Product {
+  colors?: ColorVariant[]
   id: string
   name: string
   description: string | null
@@ -99,36 +101,47 @@ export function ProductDetail({ product, relatedProducts }: ProductDetailProps) 
   const router = useRouter()
   const { addToCart } = useCart()
 
+  const colors = activeColors(product)
+  const hasColors = Boolean(product.colors?.length)
+  const [selectedColorId, setSelectedColorId] = useState<string | null>(() => defaultColor(product)?.id || null)
+  const selectedColor = colors.find(color => color.id === selectedColorId) || null
+  const gallery = hasColors ? selectedColor?.images || [] : product.images
+  const sizeRows = hasColors ? selectedColor?.sizeStocks || [] : product.sizes || []
   const [quantity, setQuantity] = useState(1)
   const [selectedImage, setSelectedImage] = useState(0)
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const hasSizes = product.sizes && product.sizes.length > 0
+  const hasSizes = hasColors || sizeRows.length > 0
   const dropState = useMemo(() => getDropState(product), [product])
   const releaseLabel = formatReleaseDate(product.releaseAt)
 
   const getSelectedSizeStock = () => {
-    if (!hasSizes || !selectedSize) return product.stock
-    const sizeData = product.sizes?.find((s) => s.size === selectedSize)
+    if (!hasSizes) return product.stock
+    if (!selectedSize) return hasColors && selectedColor ? colorStock(selectedColor) : product.stock
+    const sizeData = sizeRows.find((s) => s.size === selectedSize)
     return sizeData?.stock || 0
   }
 
   const selectedSizeStock = getSelectedSizeStock()
 
-  const totalAvailableStock = useMemo(() => {
-    if (hasSizes) {
-      return product.sizes?.reduce((acc, size) => acc + size.stock, 0) || 0
-    }
-
-    return product.stock
-  }, [hasSizes, product.sizes, product.stock])
+  const totalAvailableStock = productStock(product)
+  const selectColor = (color: ColorVariant) => {
+    setSelectedColorId(color.id)
+    setSelectedImage(0)
+    const available = color.sizeStocks.find(row => row.size === selectedSize)?.stock || 0
+    if (!available) setSelectedSize(null)
+    setQuantity(current => Math.max(1, Math.min(current, available || 1)))
+    setError('')
+  }
 
   const isSoldOut = totalAvailableStock <= 0
   const canPurchase =
     !dropState.locked &&
     !isSoldOut &&
+    (!hasColors || !!selectedColor) &&
+    quantity <= selectedSizeStock &&
     (!hasSizes || (hasSizes && !!selectedSize && selectedSizeStock > 0))
 
   const handleAddToCart = async () => {
@@ -144,26 +157,28 @@ export function ProductDetail({ product, relatedProducts }: ProductDetailProps) 
       return
     }
 
+    if (hasColors && !selectedColor) { setError('Selecciona un color'); return }
+    if (quantity > selectedSizeStock) { setError('Stock insuficiente para esta selección'); return }
     if (hasSizes && !selectedSize) {
       setError('Por favor selecciona una talla')
       return
     }
 
     setLoading(true)
-    const result = await addToCart(product.id, quantity, selectedSize || undefined)
+    const result = await addToCart(product.id, quantity, selectedSize || undefined, selectedColorId || undefined)
     setLoading(false)
 
     if (result.requiresAuth) {
       router.push('/login')
-    }
+    } else if (!result.success) { setError('No se pudo agregar esta selección; comprueba disponibilidad y cantidad.') }
   }
 
   const nextImage = () => {
-    setSelectedImage((prev) => (prev + 1) % product.images.length)
+    setSelectedImage((prev) => (prev + 1) % gallery.length)
   }
 
   const prevImage = () => {
-    setSelectedImage((prev) => (prev - 1 + product.images.length) % product.images.length)
+    setSelectedImage((prev) => (prev - 1 + gallery.length) % gallery.length)
   }
 
   const maxQuantity = hasSizes ? selectedSizeStock : product.stock
@@ -184,10 +199,10 @@ export function ProductDetail({ product, relatedProducts }: ProductDetailProps) 
             <div className="absolute inset-0 bg-gradient-to-br from-white/[0.05] via-transparent to-black/10" />
 
             <div className="relative aspect-[4/4.55] sm:aspect-square">
-              {product.images[selectedImage] ? (
+              {gallery[selectedImage] ? (
                 <>
                   <Image
-                    src={product.images[selectedImage].url}
+                    src={gallery[selectedImage].url}
                     alt={product.name}
                     fill
                     className={`object-cover transition duration-500 ${
@@ -230,7 +245,7 @@ export function ProductDetail({ product, relatedProducts }: ProductDetailProps) 
                 )}
               </div>
 
-              {product.images.length > 1 && (
+              {gallery.length > 1 && (
                 <>
                   <button
                     onClick={prevImage}
@@ -249,7 +264,7 @@ export function ProductDetail({ product, relatedProducts }: ProductDetailProps) 
                   </button>
 
                   <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2 rounded-full border border-white/10 bg-black/40 px-3 py-2 backdrop-blur-md">
-                    {product.images.map((_, index) => (
+                    {gallery.map((_, index) => (
                       <button
                         key={index}
                         onClick={() => setSelectedImage(index)}
@@ -267,11 +282,11 @@ export function ProductDetail({ product, relatedProducts }: ProductDetailProps) 
             </div>
           </div>
 
-          {product.images.length > 1 && (
+          {gallery.length > 1 && (
             <div className="grid grid-cols-4 gap-3">
-              {product.images.map((image, index) => (
+              {gallery.map((image, index) => (
                 <button
-                  key={image.id}
+                  key={image.id || image.url}
                   onClick={() => setSelectedImage(index)}
                   className={`group relative aspect-square overflow-hidden rounded-2xl border transition-all ${
                     selectedImage === index
@@ -391,6 +406,18 @@ export function ProductDetail({ product, relatedProducts }: ProductDetailProps) 
                 </div>
               )}
 
+              {hasColors && (
+                <section aria-label="Color" className="rounded-3xl border border-white/10 p-4">
+                  <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest">Color</h2>
+                  <div className="flex flex-wrap gap-3">
+                    {colors.map(color => <button key={color.id} type="button" aria-pressed={color.id === selectedColorId} onClick={() => selectColor(color)} className={'min-w-24 rounded-xl border p-3 text-sm ' + (color.id === selectedColorId ? 'border-white bg-white/10' : 'border-white/20')}>
+                      <span aria-hidden="true" className="mx-auto mb-2 block h-7 w-7 rounded-full border border-white/30" style={{ backgroundColor: color.swatchHex || 'transparent' }} />
+                      <span className="block">{color.name}</span>
+                      {colorStock(color) === 0 && <span className="block text-xs text-muted-foreground">Agotado</span>}
+                    </button>)}
+                  </div>
+                </section>
+              )}
               {hasSizes && (
                 <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.025] p-4 sm:p-5">
                   <div className="mb-4 flex items-center justify-between gap-3">
@@ -413,14 +440,14 @@ export function ProductDetail({ product, relatedProducts }: ProductDetailProps) 
 
                   <div className="grid grid-cols-4 gap-3">
                     {SIZES.map((size) => {
-                      const sizeData = product.sizes?.find((s) => s.size === size)
+                      const sizeData = sizeRows.find((s) => s.size === size)
                       const isAvailable = sizeData && sizeData.stock > 0
                       const isSelected = selectedSize === size
 
                       return (
                         <button
                           key={size}
-                          onClick={() => isAvailable && setSelectedSize(size)}
+                          onClick={() => { if (isAvailable) { setSelectedSize(size); setQuantity(current => Math.max(1, Math.min(current, sizeData.stock))) } }}
                           disabled={!isAvailable || dropState.locked || isSoldOut}
                           className={`h-14 rounded-2xl border text-sm font-semibold transition-all ${
                             isSelected

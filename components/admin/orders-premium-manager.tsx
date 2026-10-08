@@ -25,6 +25,7 @@ type OrderItem = {
   quantity: number
   unitPrice: number
   size?: string | null
+  colorName?: string | null
   product: {
     name: string
   }
@@ -521,6 +522,7 @@ export function OrdersPremiumManager({ orders }: { orders: Order[] }) {
                               </p>
                               <p className="text-sm text-muted-foreground">
                                 Cantidad: {item.quantity}
+                                {item.colorName ? ` · Color: ${item.colorName}` : ''}
                                 {item.size ? ` · Talla ${item.size}` : ''}
                               </p>
                             </div>

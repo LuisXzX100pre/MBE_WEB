@@ -37,6 +37,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
         return {
           allowedContentTypes: allowedTypes,
+          maximumSizeInBytes: maxSize,
           addRandomSuffix: true,
           pathname,
         }

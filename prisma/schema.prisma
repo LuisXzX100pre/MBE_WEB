@@ -71,6 +71,8 @@ model Product {
   category        Category       @relation(fields: [categoryId], references: [id])
   images          ProductImage[]
   sizes           ProductSize[]
+  homeHeroImageUrl String?
+  colors          ProductColor[]
   cartItems       CartItem[]
   orderItems      OrderItem[]
   createdAt       DateTime       @default(now())
@@ -85,6 +87,42 @@ model ProductSize {
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, size])
+}
+
+model ProductColor {
+  id         String @id @default(cuid())
+  productId  String
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name       String
+  swatchHex  String?
+  order      Int @default(0)
+  active     Boolean @default(true)
+  images     ProductColorImage[]
+  sizeStocks ProductColorSize[]
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([productId, order])
+}
+
+model ProductColorImage {
+  id      String @id @default(cuid())
+  colorId String
+  color   ProductColor @relation(fields: [colorId], references: [id], onDelete: Cascade)
+  url     String
+  order   Int @default(0)
+
+  @@index([colorId, order])
+}
+
+model ProductColorSize {
+  id      String @id @default(cuid())
+  colorId String
+  color   ProductColor @relation(fields: [colorId], references: [id], onDelete: Cascade)
+  size    Size
+  stock   Int @default(0)
+
+  @@unique([colorId, size])
 }
 
 enum Size {
@@ -126,7 +164,12 @@ model CartItem {
   productId String
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  @@unique([cartId, productId, size])
+  productColorId String?
+  productColor ProductColor? @relation(fields: [productColorId], references: [id], onDelete: Restrict)
+  variantKey String
+
+  @@unique([cartId, productId, variantKey])
+  @@index([productColorId])
 }
 
 model Order {
@@ -195,6 +238,11 @@ model OrderItem {
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId String
   product   Product @relation(fields: [productId], references: [id])
+  productColorId String?
+  productColor ProductColor? @relation(fields: [productColorId], references: [id], onDelete: Restrict)
+  colorName String?
+
+  @@index([productColorId])
 }
 
 model Payment {

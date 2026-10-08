@@ -8,6 +8,8 @@ interface CartItem {
   id: string
   quantity: number
   size: string | null
+  productColorId: string | null
+  productColor?: { name: string; images: { url: string }[] } | null
   product: {
     id: string
     name: string
@@ -19,9 +21,9 @@ interface CartItem {
 interface CartContextType {
   items: CartItem[]
   loading: boolean
-  addToCart: (productId: string, quantity?: number, size?: string) => Promise<{ success: boolean; requiresAuth?: boolean }>
-  removeFromCart: (productId: string, size?: string) => Promise<void>
-  updateQuantity: (productId: string, quantity: number, size?: string) => Promise<void>
+  addToCart: (productId: string, quantity?: number, size?: string, productColorId?: string) => Promise<{ success: boolean; requiresAuth?: boolean }>
+  removeFromCart: (productId: string, size?: string, productColorId?: string) => Promise<void>
+  updateQuantity: (productId: string, quantity: number, size?: string, productColorId?: string) => Promise<void>
   clearCart: () => Promise<void>
   refreshCart: () => Promise<void>
   totalItems: number
@@ -57,7 +59,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     refreshCart()
   }, [user])
 
-  const addToCart = async (productId: string, quantity = 1, size?: string) => {
+  const addToCart = async (productId: string, quantity = 1, size?: string, productColorId?: string) => {
     if (!user) {
       return { success: false, requiresAuth: true }
     }
@@ -66,7 +68,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const res = await fetch('/api/cart/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId, quantity, size }),
+        body: JSON.stringify({ productId, quantity, size, productColorId }),
       })
 
       if (res.ok) {
@@ -79,12 +81,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const removeFromCart = async (productId: string, size?: string) => {
+  const removeFromCart = async (productId: string, size?: string, productColorId?: string) => {
     try {
       await fetch('/api/cart/remove', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId, size }),
+        body: JSON.stringify({ productId, size, productColorId }),
       })
       await refreshCart()
     } catch {
@@ -92,12 +94,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const updateQuantity = async (productId: string, quantity: number, size?: string) => {
+  const updateQuantity = async (productId: string, quantity: number, size?: string, productColorId?: string) => {
     try {
       await fetch('/api/cart/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId, quantity, size }),
+        body: JSON.stringify({ productId, quantity, size, productColorId }),
       })
       await refreshCart()
     } catch {

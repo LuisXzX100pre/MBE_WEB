@@ -6,11 +6,16 @@ const React = require('react')
 const { renderToStaticMarkup } = require('react-dom/server')
 
 function load(file, dependencies = {}) {
+  const key = require('node:path').resolve(file), cacheKey = Symbol.for('mbe.test.modules')
+  const cache = dependencies[cacheKey] ||= new Map()
+  if (cache.has(key)) return cache.get(key)
+
   const mod = { exports: {} }
+  cache.set(key, mod.exports)
   const js = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
   }).outputText
-  new Function('require', 'exports', js)(name => name === 'server-only' ? {} : dependencies[name] || require(name), mod.exports)
+  new Function('require', 'exports', js)(name => name === 'server-only' ? {} : dependencies[name] || (() => { const path = require('node:path'); const base = name.startsWith('@/') ? path.resolve(name.slice(2)) : name.startsWith('.') ? path.resolve(path.dirname(file), name) : null; const local = base && [base + '.ts', base + '.tsx'].find(candidate => fs.existsSync(candidate)); return local ? load(local, dependencies) : require(name) })(), mod.exports)
   return mod.exports
 }
 function membershipStore() {

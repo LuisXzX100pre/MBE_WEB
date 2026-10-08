@@ -1,41 +1,17 @@
-// app/api/cart/remove/route.ts
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
+import { mutateCart } from '@/lib/cart-mutations'
+import { ProductSelectionError } from '@/lib/product-variants'
 
 export async function POST(request: Request) {
   const user = await getCurrentUser()
-
-  if (!user) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-  }
-
+  if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
   try {
-    const { productId, size } = await request.json()
-
-    const cart = await prisma.cart.findUnique({
-      where: { userId: user.id },
-    })
-
-    if (!cart) {
-      return NextResponse.json({ success: true })
-    }
-
-    // Eliminar item especifico con productId y size
-    await prisma.cartItem.deleteMany({
-      where: {
-        cartId: cart.id,
-        productId,
-        size: size || null,
-      },
-    })
-
+    const body = await request.json()
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new ProductSelectionError('Solicitud inválida')
+    await mutateCart(user.id, body, 'remove')
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Error removing from cart:', error)
-    return NextResponse.json(
-      { error: 'Error al eliminar del carrito' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'No se pudo actualizar el carrito' }, { status: error instanceof ProductSelectionError ? 400 : 500 })
   }
 }
