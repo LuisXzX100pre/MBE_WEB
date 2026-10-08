@@ -31,7 +31,7 @@ export default async function CommunityPage() {
           </div>
           <div className="relative">
             <h1 className="text-2xl font-black uppercase leading-none tracking-tight sm:max-w-4xl sm:text-4xl sm:leading-[0.9] sm:tracking-tighter lg:text-5xl">
-              MBE <span className="sm:block sm:text-white/35">Community</span>
+              MBE <span className="sm:block sm:text-white/35">Comunidad</span>
             </h1>
             <p className="mt-3 break-words text-xs text-white/50 sm:mt-6 sm:text-sm">
               Bienvenido adentro, {user.username}

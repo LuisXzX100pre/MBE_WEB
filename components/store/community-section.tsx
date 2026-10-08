@@ -13,9 +13,6 @@ export function CommunitySection({ communityCount }: { communityCount: number })
         <h2 className="text-xl font-black uppercase tracking-tight sm:text-3xl md:text-4xl">
           MBE Community
         </h2>
-        <p className="mt-2 text-sm font-medium sm:mt-3 sm:text-lg">
-          Lo que no sale afuera.
-        </p>
         <p className="mx-auto mt-2 max-w-xs text-xs leading-5 text-white/50 sm:max-w-lg sm:text-sm sm:leading-6">
           Adelantos, procesos y beneficios para los que están dentro.
         </p>
