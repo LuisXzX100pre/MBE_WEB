@@ -17,6 +17,9 @@ import { isWithinDropWindow } from '@/lib/drop'
 
 export const dynamic = 'force-dynamic'
 
+// Presentation baseline; real memberships remain the source of growth.
+const COMMUNITY_DISPLAY_BASELINE = 50
+
 async function getFeaturedProducts() {
   return prisma.product.findMany({
     where: {
@@ -149,6 +152,8 @@ export default async function HomePage() {
     prisma.communityMembership.count(),
   ])
 
+  const communityDisplayCount = COMMUNITY_DISPLAY_BASELINE + communityCount
+
   const communityCampaign = !nextDrop && !recentDrop ? await prisma.communityWheelCampaign.findFirst({
     where: liveCampaignWhere(), orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     select: { name: true, title: true, subtitle: true, description: true, note: true },
@@ -185,7 +190,7 @@ export default async function HomePage() {
               </p>
             </div>
 
-            <CommunitySection communityCount={communityCount} />
+            <CommunitySection communityCount={communityDisplayCount} />
 
             <div className="mt-6 flex min-h-[520px] w-full items-center sm:mt-8 md:min-h-[580px] lg:min-h-[640px]">
               <HomeHeroSwitcher
