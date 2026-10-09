@@ -93,11 +93,11 @@ type QuoteResponse = {
   }
 }
 
-const stripePromise =
-  typeof window !== 'undefined' &&
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-    ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
-    : null
+const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+
+const stripePromise = stripePublishableKey
+  ? loadStripe(stripePublishableKey)
+  : null
 
 const baseStripeElementStyle = {
   style: {
