@@ -67,7 +67,7 @@ export function HomeHeroCarousel({ slides }: { slides: HomeHeroSlide[] }) {
           </div>
           <div className="order-1 min-w-0 lg:order-2">
             <div className="relative flex h-[180px] items-center justify-center overflow-hidden rounded-[18px] border border-white/10 bg-black/25 sm:h-[270px] lg:h-[410px]">
-              {slide.type === 'PRODUCT' && slide.image ? <Image src={slide.image} alt={slide.title} fill sizes="(max-width: 1024px) 90vw, 45vw" className="object-contain" priority={index === 0} draggable={false} />
+              {slide.type === 'PRODUCT' && slide.image ? <Image src={slide.image} alt={slide.title} fill sizes="(max-width: 1024px) 90vw, 45vw" className="object-cover object-center" priority={index === 0} draggable={false} />
               : <div className="flex h-full w-full flex-col items-center justify-center gap-4 px-8"><Image src={slide.type === 'COMMUNITY' ? '/ICONO_LOGO.png' : '/logo.png'} alt="MBE" width={slide.type === 'COMMUNITY' ? 140 : 360} height={slide.type === 'COMMUNITY' ? 140 : 190} className={slide.type === 'COMMUNITY' ? 'h-24 w-24 rounded-full object-contain sm:h-36 sm:w-36' : 'h-auto max-h-28 w-full max-w-xs object-contain sm:max-h-40'} draggable={false} /><span className="text-[9px] uppercase tracking-[0.25em] text-white/35">{slide.type === 'COMMUNITY' ? 'Lo que no sale afuera' : slide.type === 'SOCIAL' ? 'Instagram / TikTok' : 'MBE / Streetwear'}</span></div>}
             </div>
           </div>
