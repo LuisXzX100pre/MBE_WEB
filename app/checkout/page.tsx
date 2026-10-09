@@ -1,3 +1,4 @@
+import { cartColorInclude } from '@/lib/product-queries'
 // app/checkout/page.tsx
 import { redirect } from 'next/navigation'
 import { Header } from '@/components/store/header'
@@ -12,6 +13,7 @@ async function getCart(userId: string) {
     include: {
       items: {
         include: {
+          productColor: cartColorInclude,
           product: {
             include: {
               images: { orderBy: { order: 'asc' }, take: 1 },

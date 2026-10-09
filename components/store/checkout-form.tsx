@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
+import { cartImage } from '@/lib/product-variants'
 import Link from 'next/link'
 import {
   Elements,
@@ -42,6 +43,7 @@ interface CartItem {
   id: string
   quantity: number
   size?: string | null
+  productColor?: { name: string; images: { url: string }[] } | null
   product: {
     id: string
     name: string
@@ -91,11 +93,11 @@ type QuoteResponse = {
   }
 }
 
-const stripePromise =
-  typeof window !== 'undefined' &&
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-    ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
-    : null
+const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+
+const stripePromise = stripePublishableKey
+  ? loadStripe(stripePublishableKey)
+  : null
 
 const baseStripeElementStyle = {
   style: {
@@ -837,9 +839,9 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
                 className="flex gap-4 rounded-2xl border border-border/60 bg-background/40 p-3"
               >
                 <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl bg-secondary">
-                  {item.product.images[0] ? (
+                  {cartImage(item) ? (
                     <Image
-                      src={item.product.images[0].url}
+                      src={cartImage(item)!}
                       alt={item.product.name}
                       fill
                       className="object-cover"
@@ -855,6 +857,7 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
                   <p className="truncate text-sm font-medium">{item.product.name}</p>
                   <p className="text-sm text-muted-foreground">
                     {item.quantity} x {money(item.product.price)}
+                    {item.productColor ? ` · Color: ${item.productColor.name}` : ''}
                     {item.size ? ` · Talla ${item.size}` : ''}
                   </p>
                 </div>

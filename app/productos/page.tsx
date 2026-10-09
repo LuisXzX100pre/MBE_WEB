@@ -1,3 +1,4 @@
+import { productColorsInclude } from '@/lib/product-queries'
 import { Header } from '@/components/store/header'
 import { Footer } from '@/components/store/footer'
 import { ProductCard } from '@/components/store/product-card'
@@ -16,6 +17,8 @@ async function getProducts() {
     include: {
       images: { orderBy: { order: 'asc' } },
       category: true,
+          sizes: true,
+          colors: productColorsInclude,
     },
     orderBy: { createdAt: 'desc' },
   })

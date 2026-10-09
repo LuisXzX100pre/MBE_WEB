@@ -1,5 +1,6 @@
 'use client'
 
+import { productImage, type ColorVariant } from '@/lib/product-variants'
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -7,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { Pencil, Trash2, Package } from 'lucide-react'
 
 interface Product {
+  colors?: ColorVariant[]
   id: string
   name: string
   price: number
@@ -100,9 +102,9 @@ export function ProductsTable({ products }: { products: Product[] }) {
                 <td className="p-4">
                   <div className="flex items-center gap-3">
                     <div className="relative w-12 h-12 bg-secondary rounded-lg overflow-hidden flex-shrink-0">
-                      {product.images[0] ? (
+                      {productImage(product) ? (
                         <Image
-                          src={product.images[0].url}
+                          src={productImage(product)!}
                           alt={product.name}
                           fill
                           className="object-cover"
