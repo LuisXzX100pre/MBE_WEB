@@ -1,3 +1,5 @@
+import { productColorsInclude } from '@/lib/product-queries'
+import { validateSelection, ProductSelectionError } from '@/lib/product-variants'
 // app/api/shipping/quote/route.ts
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
@@ -90,6 +92,7 @@ export async function POST(req: Request) {
             product: {
               include: {
                 sizes: true,
+                colors: productColorsInclude,
               },
             },
           },
@@ -101,27 +104,7 @@ export async function POST(req: Request) {
       return badRequest('Tu carrito está vacío')
     }
 
-    for (const item of cart.items) {
-      const isLockedDrop =
-        item.product.status === 'COMING_SOON' &&
-        (!item.product.releaseAt || item.product.releaseAt.getTime() > Date.now())
-
-      if (item.product.status === 'INACTIVE' || isLockedDrop) {
-        return badRequest(`${item.product.name} aún no está disponible para compra`)
-      }
-
-      if (item.size) {
-        const sizeData = item.product.sizes.find((s) => s.size === item.size)
-
-        if (!sizeData || sizeData.stock < item.quantity) {
-          return badRequest(
-            `No hay stock suficiente de ${item.product.name} talla ${item.size}`
-          )
-        }
-      } else if (item.product.stock < item.quantity) {
-        return badRequest(`No hay stock suficiente de ${item.product.name}`)
-      }
-    }
+    for (const item of cart.items) validateSelection(item.product, item.productColorId, item.size, item.quantity)
 
     const isLocalFreeDelivery = isBenitoJuarezCancunDestination({
       state,
@@ -304,7 +287,7 @@ export async function POST(req: Request) {
             ? error.message
             : 'Ocurrió un error al cotizar el envío',
       },
-      { status: 500 }
+      { status: error instanceof ProductSelectionError ? 400 : 500 }
     )
   }
 }

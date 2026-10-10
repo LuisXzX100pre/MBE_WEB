@@ -20,16 +20,23 @@ model User {
   cart                Cart?
   orders              Order[]
   passwordResetTokens PasswordResetToken[]
+  communityComments   CommunityComment[]
+  communityWheelSpins CommunityWheelSpin[]
+  communityTickets    CommunityTicket[]
+  communityEventInteractions CommunityEventInteraction[]
+  communityMembership CommunityMembership?
+  communityInviteRedemption CommunityInviteRedemption?
+  communityAccessAttempts CommunityAccessAttempt[]
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String   @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId])
   @@index([expiresAt])
@@ -48,27 +55,29 @@ model Category {
 }
 
 model Product {
-  id              String        @id @default(cuid())
+  id              String         @id @default(cuid())
   name            String
   description     String?
   price           Float
-  stock           Int           @default(0)
-  weightKg        Float         @default(0.35)
-  lengthCm        Int           @default(30)
-  widthCm         Int           @default(24)
-  heightCm        Int           @default(4)
-  shipsSeparately Boolean       @default(false)
-  status          ProductStatus @default(ACTIVE)
+  stock           Int            @default(0)
+  weightKg        Float          @default(0.35)
+  lengthCm        Int            @default(30)
+  widthCm         Int            @default(24)
+  heightCm        Int            @default(4)
+  shipsSeparately Boolean        @default(false)
+  status          ProductStatus  @default(ACTIVE)
   dropName        String?
   releaseAt       DateTime?
   categoryId      String
-  category        Category      @relation(fields: [categoryId], references: [id])
+  category        Category       @relation(fields: [categoryId], references: [id])
   images          ProductImage[]
   sizes           ProductSize[]
+  homeHeroImageUrl String?
+  colors          ProductColor[]
   cartItems       CartItem[]
   orderItems      OrderItem[]
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 }
 
 model ProductSize {
@@ -79,6 +88,42 @@ model ProductSize {
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, size])
+}
+
+model ProductColor {
+  id         String @id @default(cuid())
+  productId  String
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name       String
+  swatchHex  String?
+  order      Int @default(0)
+  active     Boolean @default(true)
+  images     ProductColorImage[]
+  sizeStocks ProductColorSize[]
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([productId, order])
+}
+
+model ProductColorImage {
+  id      String @id @default(cuid())
+  colorId String
+  color   ProductColor @relation(fields: [colorId], references: [id], onDelete: Cascade)
+  url     String
+  order   Int @default(0)
+
+  @@index([colorId, order])
+}
+
+model ProductColorSize {
+  id      String @id @default(cuid())
+  colorId String
+  color   ProductColor @relation(fields: [colorId], references: [id], onDelete: Cascade)
+  size    Size
+  stock   Int @default(0)
+
+  @@unique([colorId, size])
 }
 
 enum Size {
@@ -120,34 +165,39 @@ model CartItem {
   productId String
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  @@unique([cartId, productId, size])
+  productColorId String?
+  productColor ProductColor? @relation(fields: [productColorId], references: [id], onDelete: Restrict)
+  variantKey String
+
+  @@unique([cartId, productId, variantKey])
+  @@index([productColorId])
 }
 
 model Order {
-  id                     String      @id @default(cuid())
-  userId                 String
-  user                   User        @relation(fields: [userId], references: [id])
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
-  subtotal               Float       @default(0)
-  shippingCost           Float       @default(0)
-  total                  Float
-  currency               String      @default("MXN")
+  subtotal     Float  @default(0)
+  shippingCost Float  @default(0)
+  total        Float
+  currency     String @default("MXN")
 
-  status                 OrderStatus @default(PENDING)
+  status OrderStatus @default(PENDING)
 
-  shippingAddress        String?
-  shippingFullName       String?
-  shippingPhone          String?
-  shippingEmail          String?
-  shippingPostalCode     String?
-  shippingState          String?
-  shippingCity           String?
-  shippingNeighborhood   String?
-  shippingStreet         String?
-  shippingExtNumber      String?
-  shippingIntNumber      String?
-  shippingReference      String?
-  shippingCountry        String      @default("MX")
+  shippingAddress      String?
+  shippingFullName     String?
+  shippingPhone        String?
+  shippingEmail        String?
+  shippingPostalCode   String?
+  shippingState        String?
+  shippingCity         String?
+  shippingNeighborhood String?
+  shippingStreet       String?
+  shippingExtNumber    String?
+  shippingIntNumber    String?
+  shippingReference    String?
+  shippingCountry      String  @default("MX")
 
   shippingCarrier        String?
   shippingService        String?
@@ -161,13 +211,13 @@ model Order {
   shippingQuoteJson      Json?
   skydropxShipmentId     String?
 
-  inventoryDiscounted    Boolean     @default(false)
+  inventoryDiscounted Boolean @default(false)
 
-  items                  OrderItem[]
-  payment                Payment?
+  items   OrderItem[]
+  payment Payment?
 
-  createdAt              DateTime    @default(now())
-  updatedAt              DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum OrderStatus {
@@ -189,6 +239,11 @@ model OrderItem {
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId String
   product   Product @relation(fields: [productId], references: [id])
+  productColorId String?
+  productColor ProductColor? @relation(fields: [productColorId], references: [id], onDelete: Restrict)
+  colorName String?
+
+  @@index([productColorId])
 }
 
 model Payment {
@@ -213,4 +268,189 @@ enum PaymentStatus {
   COMPLETED
   FAILED
   REFUNDED
+}
+
+enum CommunityMediaType {
+  IMAGE
+  VIDEO
+}
+
+model CommunityPost {
+  id           String             @id @default(cuid())
+  title        String
+  description  String
+  mediaUrl     String
+  mediaType    CommunityMediaType
+  thumbnailUrl String?
+  published    Boolean            @default(false)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  comments     CommunityComment[]
+  media        CommunityPostMedia[]
+
+  @@index([published, createdAt])
+}
+
+model CommunityPostMedia {
+  id        String        @id @default(cuid())
+  postId    String
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  url       String
+  order     Int           @default(0)
+  createdAt DateTime      @default(now())
+
+  @@index([postId, order])
+}
+
+model CommunityComment {
+  id        String        @id @default(cuid())
+  userId    String
+  postId    String
+  text      String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+  @@index([userId])
+}
+
+model CommunityWheelCampaign {
+  title        String?
+  subtitle     String?
+  description  String?
+  note         String?
+  prizeWeights Json?
+  id        String               @id @default(cuid())
+  name      String
+  active    Boolean              @default(false)
+  startsAt  DateTime?
+  endsAt    DateTime?
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  spins     CommunityWheelSpin[]
+
+  @@index([active, createdAt])
+}
+
+model CommunityWheelSpin {
+  id              String                 @id @default(cuid())
+  userId          String
+  campaignId      String
+  discountPercent Int
+  createdAt       DateTime               @default(now())
+  usedAt          DateTime?
+  user            User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaign        CommunityWheelCampaign @relation(fields: [campaignId], references: [id])
+
+  @@unique([userId, campaignId])
+  @@index([campaignId, createdAt])
+}
+
+enum CommunityEventType {
+  ANNOUNCEMENT
+  MISSION
+  DECISION
+  CHOICE
+}
+
+model CommunityEvent {
+  id          String            @id @default(cuid())
+  title       String
+  description String
+  active      Boolean           @default(false)
+  startsAt    DateTime
+  endsAt      DateTime
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  tickets     CommunityTicket[]
+  type        CommunityEventType @default(ANNOUNCEMENT)
+  interactionPrompt String?
+  options     Json?
+  interactions CommunityEventInteraction[]
+
+  @@index([active, startsAt])
+}
+
+model CommunityEventInteraction {
+  id        String   @id @default(cuid())
+  eventId   String
+  userId    String
+  optionKey String?
+  response  String?
+  createdAt DateTime @default(now())
+  event     CommunityEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([eventId, createdAt])
+  @@index([userId])
+}
+
+model CommunityTicket {
+  id              String         @id @default(cuid())
+  eventId         String
+  userId          String
+  discountPercent Int
+  code            String         @unique
+  createdAt       DateTime       @default(now())
+  expiresAt       DateTime?
+  usedAt          DateTime?
+  event           CommunityEvent @relation(fields: [eventId], references: [id])
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([eventId, createdAt])
+}
+
+model CommunityMembership {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  joinedAt   DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([joinedAt])
+}
+
+enum CommunityInviteType {
+  INDIVIDUAL
+  CAMPAIGN
+}
+
+model CommunityInvite {
+  id          String @id @default(cuid())
+  name        String
+  codeHash    String @unique
+  type        CommunityInviteType
+  maxUses     Int
+  uses        Int @default(0)
+  active      Boolean @default(true)
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  redemptions CommunityInviteRedemption[]
+
+  @@index([createdAt, id])
+}
+
+model CommunityInviteRedemption {
+  id         String @id @default(cuid())
+  inviteId   String
+  userId     String @unique
+  redeemedAt DateTime @default(now())
+  invite     CommunityInvite @relation(fields: [inviteId], references: [id], onDelete: Restrict)
+  user       User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([inviteId, redeemedAt, id])
+}
+
+model CommunityAccessAttempt {
+  id        String @id @default(cuid())
+  userId    String
+  createdAt DateTime @default(now())
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }

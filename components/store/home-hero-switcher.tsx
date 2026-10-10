@@ -10,9 +10,12 @@ import {
   HomeHeroCarousel,
   type HomeHeroSlide,
 } from '@/components/store/home-hero-carousel'
+import { homeHeroImage, type ColorVariant } from '@/lib/product-variants'
 import { playUnlockedDropSound } from '@/lib/audio-unlock'
 
 type DropProduct = {
+  homeHeroImageUrl?: string | null
+  colors?: ColorVariant[]
   id: string
   name: string
   description: string | null
@@ -38,6 +41,7 @@ const DROP_SOUND_DURATION_MS = 10000
 const DROP_REFRESH_DELAY_MS = 12000
 
 function LiveDropFixedHero({ product }: { product: DropProduct }) {
+  const image = homeHeroImage(product)
   return (
     <div className="w-full">
       <div className="relative overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-br from-[#090909] via-[#101010] to-[#050505] shadow-[0_25px_90px_rgba(0,0,0,0.42)] sm:rounded-[32px] lg:rounded-[38px]">
@@ -87,10 +91,10 @@ function LiveDropFixedHero({ product }: { product: DropProduct }) {
             <div className="relative h-[260px] w-full overflow-hidden rounded-[22px] border border-white/10 bg-black/30 shadow-[0_20px_80px_rgba(0,0,0,0.35)] sm:h-[320px] sm:rounded-[28px] md:h-[380px] lg:h-[450px]">
               <div className="absolute inset-0 z-10 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent" />
 
-              {product.images[0]?.url ? (
+              {image ? (
                 <>
                   <Image
-                    src={product.images[0].url}
+                    src={image}
                     alt={product.name}
                     fill
                     sizes="(max-width: 1024px) 100vw, 50vw"

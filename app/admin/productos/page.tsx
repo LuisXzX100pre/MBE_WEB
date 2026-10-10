@@ -1,3 +1,4 @@
+import { productColorsInclude } from '@/lib/product-queries'
 // app/admin/productos/page.tsx
 import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
@@ -8,6 +9,7 @@ async function getProducts() {
   const products = await prisma.product.findMany({
     include: {
       category: true,
+      colors: productColorsInclude,
       images: { orderBy: { order: 'asc' }, take: 1 },
     },
     orderBy: { createdAt: 'desc' },

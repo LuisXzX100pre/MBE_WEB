@@ -133,7 +133,7 @@ export default async function MisPedidosPage() {
             <div className="space-y-5">
               {orders.map((order) => {
                 const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0)
-                const firstItems = order.items.slice(0, 3).map((item) => item.product.name)
+                const firstItems = order.items.slice(0, 3).map((item) => item.product.name + (item.colorName ? ` · Color: ${item.colorName}` : '') + (item.size ? ` · Talla ${item.size}` : ''))
                 const localDelivery = isLocalDelivery(order as any)
 
                 return (

@@ -1,5 +1,7 @@
 'use client'
 
+import { ProductVariantFields, type ColorDraft } from './product-variant-fields'
+import type { ColorVariant } from '@/lib/product-variants'
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
@@ -25,6 +27,9 @@ interface ProductSize {
 }
 
 interface Product {
+  updatedAt?: Date | string
+  colors?: ColorVariant[]
+  homeHeroImageUrl?: string | null
   id: string
   name: string
   description: string | null
@@ -72,6 +77,10 @@ export function ProductForm({ product, categories }: ProductFormProps) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
 
+  const [colors, setColors] = useState<ColorDraft[]>(() => (product?.colors || []).map(color => ({ ...color, clientId: color.id, images: color.images.map(image => image.url) })))
+  const [homeImage, setHomeImage] = useState(product?.homeHeroImageUrl || '')
+  const legacyWithoutSizes = Boolean(product && !product.sizes.length)
+  const [simpleStock, setSimpleStock] = useState(product?.stock || 0)
   const [name, setName] = useState(product?.name || '')
   const [description, setDescription] = useState(product?.description || '')
   const [price, setPrice] = useState(product?.price?.toString() || '')
@@ -95,7 +104,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
     return initial
   })
 
-  const totalStock = Object.values(sizeStock).reduce((sum, val) => sum + val, 0)
+  const totalStock = colors.length ? colors.reduce((sum, color) => sum + color.sizeStocks.reduce((total, row) => total + row.stock, 0), 0) : legacyWithoutSizes ? simpleStock : Object.values(sizeStock).reduce((sum, val) => sum + val, 0)
 
   const handleSizeStockChange = (size: string, value: string) => {
     const numValue = parseInt(value) || 0
@@ -136,7 +145,9 @@ export function ProductForm({ product, categories }: ProductFormProps) {
   }
 
   const uploadFiles = async (files: FileList | File[]) => {
+    if (uploading) return
     const incomingFiles = Array.from(files)
+    incomingFiles.forEach(validateFile)
 
     if (images.length + incomingFiles.length > 3) {
       throw new Error('Solo puedes subir maximo 3 imagenes')
@@ -165,7 +176,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
-    await uploadFiles(files)
+    try { await uploadFiles(files) } catch (error) { setError(error instanceof Error ? error.message : 'Error al subir imágenes') }
   }
 
   const handleRemoveImage = (index: number) => {
@@ -184,7 +195,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
     const files = e.dataTransfer.files
     if (!files || files.length === 0) return
 
-    await uploadFiles(files)
+    try { await uploadFiles(files) } catch (error) { setError(error instanceof Error ? error.message : 'Error al subir imágenes') }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -202,7 +213,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
         : '/api/admin/products'
       const method = product ? 'PUT' : 'POST'
 
-      const sizes = SIZES.map((size) => ({
+      const sizes = legacyWithoutSizes ? [] : SIZES.map((size) => ({
         size,
         stock: sizeStock[size] || 0,
       }))
@@ -221,6 +232,9 @@ export function ProductForm({ product, categories }: ProductFormProps) {
           releaseAt: releaseAt ? new Date(releaseAt).toISOString() : null,
           images,
           sizes,
+          colors: colors.map(({ clientId: _clientId, ...color }) => color),
+          homeHeroImageUrl: homeImage || null,
+          expectedUpdatedAt: product?.updatedAt,
         }),
       })
 
@@ -283,12 +297,12 @@ export function ProductForm({ product, categories }: ProductFormProps) {
           />
         </div>
 
-        <div className="rounded-lg border border-border bg-secondary/50 p-4">
+        {colors.length === 0 && <div className="rounded-lg border border-border bg-secondary/50 p-4">
           <label className="mb-4 block text-sm font-medium">
             Inventario por Talla
           </label>
 
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {legacyWithoutSizes ? <label className="text-sm">Stock sin talla<input type="number" min={0} step={1} value={simpleStock} onChange={event => setSimpleStock(Number(event.target.value))} className="ml-3 rounded border border-border bg-background p-2" /></label> : <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             {SIZES.map((size) => (
               <div key={size} className="space-y-2">
                 <label className="block text-center text-xs text-muted-foreground">
@@ -303,29 +317,42 @@ export function ProductForm({ product, categories }: ProductFormProps) {
                 />
               </div>
             ))}
-          </div>
+          </div>}
 
           <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
             <span className="text-sm text-muted-foreground">Stock Total:</span>
             <span className="text-lg font-bold">{totalStock} unidades</span>
           </div>
-        </div>
+        </div>}
+
+        <ProductVariantFields colors={colors} onChange={setColors} homeImage={homeImage} onHomeChange={setHomeImage} uploadFile={uploadSingleFile} busy={uploading || loading} onBusy={setUploading} onError={setError} />
 
         <div>
-          <label className="mb-2 block text-sm font-medium">Categoria</label>
-          <select
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-            className="w-full rounded-lg border border-border bg-secondary px-4 py-3 focus:outline-none focus:ring-2 focus:ring-ring"
-            required
-          >
-            <option value="">Seleccionar categoria</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
+          {categories.length > 0 ? (
+            <>
+              <label htmlFor="product-category" className="mb-2 block text-sm font-medium">Categoría</label>
+              <select
+                id="product-category"
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                className="w-full rounded-lg border border-border bg-secondary px-4 py-3 focus:outline-none focus:ring-2 focus:ring-ring"
+                required
+              >
+                <option value="">Seleccionar categoria</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+              <Link href="/admin/categorias" className="mt-2 inline-block text-sm text-primary hover:underline">Administrar categorías</Link>
+            </>
+          ) : (
+            <div className="rounded-lg border border-border bg-secondary p-4">
+              <p className="text-sm">No hay categorías disponibles.</p>
+              <Link href="/admin/categorias" className="mt-2 inline-block text-sm text-primary hover:underline">Crear categoría</Link>
+            </div>
+          )}
         </div>
 
         <div>
@@ -369,7 +396,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
                 className="w-full rounded-lg border border-border bg-background px-4 py-3 focus:outline-none focus:ring-2 focus:ring-ring"
               />
               <p className="mt-2 text-xs text-muted-foreground">
-                Si el producto esta en "Proximo drop", esta fecha se usa para
+                Si el producto esta en &quot;Proximo drop&quot;, esta fecha se usa para
                 desbloquearlo automaticamente.
               </p>
             </div>
@@ -388,7 +415,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
             className={`
               relative cursor-pointer rounded-lg border-2 border-dashed p-6 text-center transition-colors hover:border-primary/50 hover:bg-secondary/50 sm:p-8
               ${uploading ? 'border-primary bg-secondary/50' : 'border-border'}
-              ${images.length >= 3 ? 'pointer-events-none opacity-50' : ''}
+              ${images.length >= 3 || uploading ? 'pointer-events-none opacity-50' : ''}
             `}
           >
             <input
@@ -398,7 +425,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
               multiple
               onChange={handleFileChange}
               className="hidden"
-              disabled={images.length >= 3}
+              disabled={images.length >= 3 || uploading}
             />
 
             {uploading ? (
@@ -500,7 +527,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
         <div className="flex flex-col gap-3 sm:flex-row">
           <button
             type="submit"
-            disabled={loading || uploading}
+            disabled={loading || uploading || categories.length === 0}
             className="flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
