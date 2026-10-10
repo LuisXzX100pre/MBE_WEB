@@ -44,13 +44,14 @@ export default async function CommunityPage() {
             </p>
             <nav aria-label="Secciones de Comunidad" className="mt-5 flex flex-wrap gap-5 text-[10px] uppercase tracking-[0.15em] sm:mt-8 sm:gap-8 sm:tracking-[0.25em]">
               <a href="#ruleta" className="border-b border-white py-2">Campaña / ruleta</a>
+              <a href="#ultimos" className="py-2 text-white/60 hover:text-white">Último</a>
               <a href="#archivo" className="py-2 text-white/60 hover:text-white">Archivo</a>
               <a href="#eventos" className="py-2 text-white/60 hover:text-white">Eventos</a>
             </nav>
           </div>
         </section>
         <DiscountWheel initialState={JSON.parse(JSON.stringify(wheel)) as WheelState} />
-        <CommunityFeed initialPosts={JSON.parse(JSON.stringify(feed.posts)) as Post[]} initialCursor={feed.nextCursor} />
+        <CommunityFeed initialRecentPosts={JSON.parse(JSON.stringify(feed.recentPosts ?? [])) as Post[]} initialPosts={JSON.parse(JSON.stringify(feed.posts)) as Post[]} initialCursor={feed.nextCursor} />
         <CommunityEvents />
       </main>
       <Footer />

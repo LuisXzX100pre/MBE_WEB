@@ -26,7 +26,7 @@ export function PostsManager() {
     finally { setBusy(false) }
   }
   async function remove(id: string) {
-    if (!window.confirm('Eliminar publicacion y sus comentarios?')) return
+    if (!window.confirm('Eliminar definitivamente la publicación, sus comentarios y sus archivos privados?')) return
     setBusy(true); setError('')
     try { await communityRequest('/api/admin/community/posts/' + id, 'DELETE'); await refresh() }
     catch (e) { setError(e instanceof Error ? e.message : 'No se pudo eliminar') }
