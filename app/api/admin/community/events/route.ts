@@ -4,7 +4,7 @@ import { body } from '@/lib/community/validation'
 import { eventData } from '@/lib/community/events'
 export async function GET() {
   return api(async () => { await member(undefined, true); return prisma.communityEvent.findMany({
-    orderBy: { startsAt: 'desc' }, take: 100, include: { _count: { select: { tickets: true } } },
+    orderBy: { startsAt: 'desc' }, take: 100, include: { _count: { select: { tickets: true, interactions: true } } },
   }) })
 }
 export async function POST(request: Request) {

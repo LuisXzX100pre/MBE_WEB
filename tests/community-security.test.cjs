@@ -103,7 +103,7 @@ test('tickets validate percentages, expired events and expiry bounds', async () 
     user: { findUnique: async ({ where }) => where.username === 'member' ? { id: 'db-user' } : null },
     communityTicket: { create: async ({ data }) => { assigned = data; return data } },
   }
-  const events = load('lib/community/events.ts', { './validation': validation, '@/lib/prisma': { prisma: { $transaction: async work => work(tx) } } })
+  const events = load('lib/community/events.ts', { './validation': validation, './event-config': load('lib/community/event-config.ts'), '@/lib/prisma': { prisma: { $transaction: async work => work(tx) } } })
   for (const value of [0, 101, 2.5, '10', null]) assert.throws(() => events.ticketPercent(value))
   const input = { eventId: 'event', username: 'member', userId: 'forged', discountPercent: 5 }
   const ticket = await events.assignTicket(input)
@@ -118,6 +118,7 @@ test('tickets validate percentages, expired events and expiry bounds', async () 
 test('event tickets are queried using session identity only', async () => {
   let filter
   const events = load('lib/community/events.ts', {
+    './event-config': load('lib/community/event-config.ts'),
     './validation': validation,
     '@/lib/prisma': { prisma: {
       communityEvent: { findMany: async () => [] },

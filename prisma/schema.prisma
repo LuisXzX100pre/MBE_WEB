@@ -23,6 +23,7 @@ model User {
   communityComments   CommunityComment[]
   communityWheelSpins CommunityWheelSpin[]
   communityTickets    CommunityTicket[]
+  communityEventInteractions CommunityEventInteraction[]
   communityMembership CommunityMembership?
   communityInviteRedemption CommunityInviteRedemption?
   communityAccessAttempts CommunityAccessAttempt[]
@@ -347,6 +348,13 @@ model CommunityWheelSpin {
   @@index([campaignId, createdAt])
 }
 
+enum CommunityEventType {
+  ANNOUNCEMENT
+  MISSION
+  DECISION
+  CHOICE
+}
+
 model CommunityEvent {
   id          String            @id @default(cuid())
   title       String
@@ -357,8 +365,27 @@ model CommunityEvent {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   tickets     CommunityTicket[]
+  type        CommunityEventType @default(ANNOUNCEMENT)
+  interactionPrompt String?
+  options     Json?
+  interactions CommunityEventInteraction[]
 
   @@index([active, startsAt])
+}
+
+model CommunityEventInteraction {
+  id        String   @id @default(cuid())
+  eventId   String
+  userId    String
+  optionKey String?
+  response  String?
+  createdAt DateTime @default(now())
+  event     CommunityEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([eventId, createdAt])
+  @@index([userId])
 }
 
 model CommunityTicket {
