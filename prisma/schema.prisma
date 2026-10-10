@@ -285,8 +285,20 @@ model CommunityPost {
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
   comments     CommunityComment[]
+  media        CommunityPostMedia[]
 
   @@index([published, createdAt])
+}
+
+model CommunityPostMedia {
+  id        String        @id @default(cuid())
+  postId    String
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  url       String
+  order     Int           @default(0)
+  createdAt DateTime      @default(now())
+
+  @@index([postId, order])
 }
 
 model CommunityComment {

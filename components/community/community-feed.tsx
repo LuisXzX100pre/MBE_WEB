@@ -33,7 +33,7 @@ export function CommunityFeed({ initialRecentPosts = [], initialPosts, initialCu
       {!recent.length && <div className="border-y border-white/10 py-16"><p className="text-2xl font-black uppercase sm:text-3xl">El siguiente movimiento nace aquí.</p><p className="mt-4 text-sm text-white/50">Vuelve pronto para descubrir lo último en MBE.</p></div>}
       <div aria-label="Publicaciones recientes" aria-roledescription="carrusel" style={{ touchAction: 'pan-y pinch-zoom' }}
         onPointerDown={event => {
-          if (recent.length < 2 || event.pointerType !== 'touch' || !event.isPrimary || (event.target as Element).closest?.('button,a,input,textarea,select,label,video,[contenteditable],[role="button"]')) return
+          if (recent.length < 2 || event.pointerType !== 'touch' || !event.isPrimary || (event.target as Element).closest?.('[data-community-gallery],button,a,input,textarea,select,label,video,[contenteditable],[role="button"]')) return
           drag.current = { x: event.clientX, y: event.clientY, id: event.pointerId }
           event.currentTarget.setPointerCapture?.(event.pointerId)
         }}

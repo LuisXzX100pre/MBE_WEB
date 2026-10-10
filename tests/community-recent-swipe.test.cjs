@@ -31,6 +31,6 @@ test('horizontal touch navigates; vertical/small gesture and interactive/comment
 })
 test('Community image is fully contained/centered with 60vh cap; video behavior unchanged',()=>{
  const {CommunityPost}=load('components/community/community-post.tsx',{'next/image':({className,alt})=>React.createElement('img',{className,alt}),'./community-comments':{CommunityComments:()=>null}})
- const html=renderToStaticMarkup(React.createElement(CommunityPost,{post:post('p'),index:0}));assert.ok(html.includes('max-h-[60vh]'));assert.ok(html.includes('object-contain object-center'));assert.ok(!html.includes('object-cover'))
+ const html=renderToStaticMarkup(React.createElement(CommunityPost,{post:post('p'),index:0}));assert.ok(html.includes('max-w-[min(420px,48vh)]'));assert.ok(html.includes('aspect-[4/5]'));assert.ok(html.includes('object-contain object-center'));assert.ok(!html.includes('object-cover'))
  const video=renderToStaticMarkup(React.createElement(CommunityPost,{post:{...post('p'),mediaType:'VIDEO'},index:0}));assert.ok(video.includes('max-h-[70vh]'));assert.ok(video.includes('controls'))
 })

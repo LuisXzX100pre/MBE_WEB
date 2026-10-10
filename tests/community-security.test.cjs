@@ -244,7 +244,7 @@ test('private media route preserves authenticated publication guards and range s
   let user = null, query, options, reads = 0, published = false, mediaUrl = 'https://mbestore.private.blob.vercel-storage.com/community/a.jpg'
   const media = mediaModule()
   const route = load('app/api/community/media/[id]/route.ts', {
-    '@/lib/community/api': { member: async () => { if (!user) throw new validation.CommunityError('No autorizado', 401); return user } },
+    '@/lib/community/api': { authenticated: async () => { if (!user) throw new validation.CommunityError('No autorizado', 401); return user }, member: async () => { if (!user) throw new validation.CommunityError('No autorizado', 401); return user } },
     '@/lib/community/validation': validation, '@/lib/community/media': media,
     '@/lib/prisma': { prisma: { communityPost: { findFirst: async ({ where }) => {
       query = where

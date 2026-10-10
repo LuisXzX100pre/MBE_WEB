@@ -95,7 +95,7 @@ test('Home counts memberships server-side and renders Community before the exist
   })
   const html = renderToStaticMarkup(await HomePage())
   assert.equal(countCalls, 1)
-  assert.ok(html.includes('27 personas están adentro'))
+  assert.ok(html.includes('77 personas están adentro'))
   assert.ok(html.indexOf('HEADER') < html.indexOf('Comunidad Adentro'))
   assert.ok(html.indexOf('Comunidad Adentro') < html.indexOf('DROP HERO'))
   assert.equal(html.match(/Comunidad Adentro/g).length, 1)

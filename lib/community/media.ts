@@ -33,9 +33,9 @@ export async function validateMedia(value: unknown, type: 'IMAGE' | 'VIDEO') {
   if (!(type === 'IMAGE' ? imageTypes : videoTypes).includes(blob.contentType) || blob.size > (type === 'IMAGE' ? 10 : 50) * 1024 * 1024) throw new CommunityError('Tipo o tamano invalido')
   return url
 }
-export async function deleteCommunityMedia(mediaUrl: string, thumbnailUrl: string | null) {
+export async function deleteCommunityMedia(mediaUrl: string, thumbnailUrl: string | null, galleryUrls: string[] = []) {
   // Validate every stored URL before deleting any file; never accept client URLs.
-  const urls = [...new Set([communityMediaUrl(mediaUrl), ...(thumbnailUrl ? [communityMediaUrl(thumbnailUrl)] : [])])]
+  const urls = [...new Set([mediaUrl, ...(thumbnailUrl ? [thumbnailUrl] : []), ...galleryUrls].map(communityMediaUrl))]
   const options = await communityBlobOptions()
   try { await del(urls, options) }
   catch { throw new CommunityError('No se pudieron eliminar los archivos privados. La publicacion se conserva; intenta nuevamente.', 502) }
