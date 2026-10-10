@@ -1,6 +1,8 @@
+import { cartColorInclude } from '@/lib/product-queries'
 // app/mis-pedidos/[id]/page.tsx
 import Link from 'next/link'
 import Image from 'next/image'
+import { cartImage } from '@/lib/product-variants'
 import { notFound, redirect } from 'next/navigation'
 import { Header } from '@/components/store/header'
 import { Footer } from '@/components/store/footer'
@@ -26,6 +28,7 @@ async function getOrderForUser(orderId: string, userId: string) {
     include: {
       items: {
         include: {
+          productColor: cartColorInclude,
           product: {
             include: {
               images: {
@@ -236,9 +239,9 @@ export default async function PedidoDetallePage({
                     className="flex gap-4 rounded-2xl border border-border/70 bg-background/40 p-4"
                   >
                     <div className="relative h-20 w-20 overflow-hidden rounded-2xl bg-secondary flex-shrink-0">
-                      {item.product.images[0] ? (
+                      {cartImage(item) ? (
                         <Image
-                          src={item.product.images[0].url}
+                          src={cartImage(item)!}
                           alt={item.product.name}
                           fill
                           sizes="80px"
@@ -252,6 +255,7 @@ export default async function PedidoDetallePage({
                       <p className="text-sm text-muted-foreground mt-1">
                         Cantidad: {item.quantity}
                       </p>
+                      {item.colorName && <p className="text-sm text-muted-foreground">Color: {item.colorName}</p>}
                       {item.size && (
                         <p className="text-sm text-muted-foreground">
                           Talla: {item.size}

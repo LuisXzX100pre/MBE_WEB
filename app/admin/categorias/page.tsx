@@ -1,4 +1,6 @@
 // app/admin/categorias/page.tsx
+import { redirect } from 'next/navigation'
+import { isAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { CategoriesManager } from '@/components/admin/categories-manager'
 
@@ -13,11 +15,12 @@ async function getCategories() {
 }
 
 export default async function AdminCategoriesPage() {
+  if (!await isAdmin()) redirect('/')
   const categories = await getCategories()
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-8">Categorias</h1>
+      <h1 className="text-3xl font-bold mb-8">Categorías</h1>
       <CategoriesManager categories={categories} />
     </div>
   )

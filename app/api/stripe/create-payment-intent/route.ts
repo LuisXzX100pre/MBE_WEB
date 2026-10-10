@@ -1,3 +1,7 @@
+import { resolveCommunityBenefit, communityAmounts, communityBenefitMetadata, moneyCents } from '@/lib/community/benefits'
+import { orderSelectionSnapshot, cartSnapshotMetadata } from '@/lib/checkout-variants'
+import { productColorsInclude } from '@/lib/product-queries'
+import { validateSelection, ProductSelectionError } from '@/lib/product-variants'
 // app/api/stripe/create-payment-intent/route.ts
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
@@ -7,6 +11,7 @@ import { resolveCheckoutShipping, CheckoutShippingError } from '@/lib/shipping/c
 import type { LocalDeliveryLike } from '@/lib/local-delivery'
 
 type CreatePaymentIntentBody = {
+  preview?: boolean
   paymentIntentId?: string
 
   recipient: string
@@ -119,6 +124,7 @@ export async function POST(request: Request) {
 
     const body = (await request.json()) as CreatePaymentIntentBody
 
+    const preview = body.preview === true
     const paymentIntentId = normalizeText(body.paymentIntentId)
     const recipient = normalizeText(body.recipient)
     const phone = normalizeText(body.phone)
@@ -137,7 +143,7 @@ export async function POST(request: Request) {
 
     const rawSelectedShippingOption = body.selectedShippingOption
 
-    if (!recipient || !phone || !email || !cardholderName) {
+    if (!recipient || !phone || !email || (!preview && !cardholderName)) {
       return NextResponse.json(
         {
           error: 'Nombre, teléfono, correo y nombre del titular son requeridos',
@@ -171,6 +177,7 @@ export async function POST(request: Request) {
             product: {
               include: {
                 sizes: true,
+                colors: productColorsInclude,
               },
             },
           },
@@ -182,45 +189,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Carrito vacío' }, { status: 400 })
     }
 
-    for (const item of cart.items) {
-      const isLockedDrop =
-        item.product.status === 'COMING_SOON' &&
-        (!item.product.releaseAt || item.product.releaseAt.getTime() > Date.now())
+    for (const item of cart.items) validateSelection(item.product, item.productColorId, item.size, item.quantity)
 
-      if (item.product.status === 'INACTIVE' || isLockedDrop) {
-        return NextResponse.json(
-          {
-            error: `${item.product.name} aún no está disponible para compra`,
-          },
-          { status: 400 }
-        )
-      }
-
-      if (item.size) {
-        const sizeData = item.product.sizes.find((s) => s.size === item.size)
-
-        if (!sizeData || sizeData.stock < item.quantity) {
-          return NextResponse.json(
-            {
-              error: `No hay stock suficiente de ${item.product.name} talla ${item.size}`,
-            },
-            { status: 400 }
-          )
-        }
-      } else if (item.product.stock < item.quantity) {
-        return NextResponse.json(
-          {
-            error: `No hay stock suficiente de ${item.product.name}`,
-          },
-          { status: 400 }
-        )
-      }
-    }
-
-    const subtotal = cart.items.reduce(
+    const subtotal = moneyCents(cart.items.reduce(
       (sum, item) => sum + item.quantity * item.product.price,
       0
-    )
+    )) / 100
 
     if (subtotal <= 0) {
       return NextResponse.json(
@@ -241,7 +215,10 @@ export async function POST(request: Request) {
       })
     const shippingCost = selectedShippingOption.total
 
-    const total = subtotal + shippingCost
+    const benefit = await resolveCommunityBenefit(user.id)
+    const amounts = communityAmounts(subtotal, shippingCost, benefit)
+    const total = amounts.total
+    const benefitMetadata = communityBenefitMetadata(benefit, amounts)
 
     if (!Number.isFinite(total) || total <= 0) {
       return NextResponse.json(
@@ -250,13 +227,10 @@ export async function POST(request: Request) {
       )
     }
 
-    const cartSnapshot = cart.items.map((item) => ({
-      productId: item.product.id,
-      productName: item.product.name,
-      quantity: item.quantity,
-      unitPrice: item.product.price,
-      size: item.size ?? null,
-    }))
+    if (preview) return NextResponse.json({ success: true, benefit, amounts }, { headers: { 'Cache-Control': 'private, no-store' } })
+
+    const cartSnapshot = cart.items.map(orderSelectionSnapshot)
+    const snapshotMetadata = cartSnapshotMetadata(cartSnapshot)
 
     const shippingAddressText = buildShippingAddressText({
       street,
@@ -295,8 +269,9 @@ export async function POST(request: Request) {
 
     if (existingPayment?.order) {
       const updatedOrder = await prisma.order.update({
-        where: { id: existingPayment.order.id },
+        where: { id: existingPayment.order.id, status: { in: ['PENDING', 'CONFIRMED'] }, inventoryDiscounted: false },
         data: {
+          items: { deleteMany: {}, create: cartSnapshot },
           subtotal,
           shippingCost,
           total,
@@ -355,7 +330,8 @@ export async function POST(request: Request) {
           shippingCity: city,
           shippingAddressJson: JSON.stringify(shippingMetadataAddress),
           shippingQuoteJson: JSON.stringify(selectedShippingOption),
-          cartSnapshot: JSON.stringify(cartSnapshot),
+          ...snapshotMetadata,
+          ...benefitMetadata,
         },
       })
 
@@ -410,12 +386,7 @@ export async function POST(request: Request) {
             shippingQuoteJson: selectedShippingOption,
 
             items: {
-              create: cart.items.map((item) => ({
-                productId: item.product.id,
-                quantity: item.quantity,
-                unitPrice: item.product.price,
-                size: item.size ?? null,
-              })),
+              create: cartSnapshot,
             },
           },
         })
@@ -460,7 +431,8 @@ export async function POST(request: Request) {
           shippingCity: city,
           shippingAddressJson: JSON.stringify(shippingMetadataAddress),
           shippingQuoteJson: JSON.stringify(selectedShippingOption),
-          cartSnapshot: JSON.stringify(cartSnapshot),
+          ...snapshotMetadata,
+          ...benefitMetadata,
         },
       })
 
@@ -484,14 +456,8 @@ export async function POST(request: Request) {
       clientSecret,
       paymentIntentId: finalPaymentIntentId,
       orderId,
-      amounts: {
-        subtotal,
-        shippingCost,
-        total,
-        subtotalCents: amountToStripeCents(subtotal),
-        shippingCostCents: amountToStripeCents(shippingCost),
-        totalCents: amountToStripeCents(total),
-      },
+      benefit,
+      amounts,
       shipping: {
         recipient,
         address: shippingAddressText,
@@ -515,7 +481,7 @@ export async function POST(request: Request) {
             ? error.message
             : 'No se pudo iniciar el pago con Stripe',
       },
-      { status: error instanceof CheckoutShippingError ? 400 : 500 }
+      { status: error instanceof CheckoutShippingError || error instanceof ProductSelectionError ? 400 : 500 }
     )
   }
 }

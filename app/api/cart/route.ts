@@ -1,3 +1,4 @@
+import { cartColorInclude } from '@/lib/product-queries'
 // app/api/cart/route.ts
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
@@ -15,6 +16,7 @@ export async function GET() {
     include: {
       items: {
         include: {
+          productColor: cartColorInclude,
           product: {
             include: {
               images: { orderBy: { order: 'asc' }, take: 1 },

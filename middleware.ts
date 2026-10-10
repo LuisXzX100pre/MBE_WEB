@@ -56,7 +56,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/checkout') ||
     pathname.startsWith('/mis-pedidos') ||
     pathname.startsWith('/cuenta') ||
-    pathname.startsWith('/perfil')
+    pathname.startsWith('/perfil') ||
+    pathname.startsWith('/comunidad')
 
   if (!isAdminPage && !isAdminApi && !isPrivatePage) {
     return NextResponse.next()
@@ -93,5 +94,6 @@ export const config = {
     '/mis-pedidos/:path*',
     '/cuenta/:path*',
     '/perfil/:path*',
+    '/comunidad/:path*',
   ],
 }

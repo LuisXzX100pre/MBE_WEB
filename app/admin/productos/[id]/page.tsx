@@ -1,3 +1,4 @@
+import { productColorsInclude } from '@/lib/product-queries'
 // app/admin/productos/[id]/page.tsx
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
@@ -6,9 +7,10 @@ import { ProductForm } from '@/components/admin/product-form'
 async function getProduct(id: string) {
   const product = await prisma.product.findUnique({
     where: { id },
-    include: { 
+    include: {
       images: { orderBy: { order: 'asc' } },
       sizes: true,
+      colors: productColorsInclude,
     },
   })
   return product

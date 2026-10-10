@@ -1,3 +1,4 @@
+import { productColorsInclude } from '@/lib/product-queries'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Header } from '@/components/store/header'
@@ -21,6 +22,8 @@ async function getCategoryWithProducts(slug: string) {
         include: {
           images: { orderBy: { order: 'asc' } },
           category: true,
+          sizes: true,
+          colors: productColorsInclude,
         },
         orderBy: { createdAt: 'desc' },
       },

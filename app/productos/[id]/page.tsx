@@ -1,3 +1,4 @@
+import { productColorsInclude } from '@/lib/product-queries'
 import { notFound } from 'next/navigation'
 import { Header } from '@/components/store/header'
 import { Footer } from '@/components/store/footer'
@@ -18,6 +19,7 @@ async function getProduct(id: string) {
       images: { orderBy: { order: 'asc' } },
       category: true,
       sizes: true,
+      colors: productColorsInclude,
     },
   })
 }
@@ -35,6 +37,7 @@ async function getRelatedProducts(categoryId: string, currentId: string) {
       images: { orderBy: { order: 'asc' } },
       category: true,
       sizes: true,
+      colors: productColorsInclude,
     },
     take: 4,
     orderBy: { createdAt: 'desc' },

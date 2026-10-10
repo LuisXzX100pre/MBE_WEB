@@ -3,6 +3,7 @@
 
 import { useEffect } from 'react'
 import Image from 'next/image'
+import { cartImage } from '@/lib/product-variants'
 import { useRouter } from 'next/navigation'
 import { useCart } from '@/contexts/cart-context'
 import { useAuth } from '@/contexts/auth-context'
@@ -94,9 +95,9 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
                     className="flex gap-4 rounded-2xl border border-border bg-card p-3"
                   >
                     <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-secondary">
-                      {item.product.images[0] ? (
+                      {cartImage(item) ? (
                         <Image
-                          src={item.product.images[0].url}
+                          src={cartImage(item)!}
                           alt={item.product.name}
                           fill
                           className="object-cover"
@@ -115,6 +116,7 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
 
                       <p className="mt-1 text-sm text-muted-foreground">
                         ${item.product.price.toFixed(2)} MXN
+                        {item.productColor && <span className="block text-xs text-muted-foreground">Color: {item.productColor.name}</span>}
                         {item.size && (
                           <span className="ml-2 rounded px-2 py-0.5 text-xs bg-secondary">
                             Talla {item.size}
@@ -128,7 +130,8 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
                             updateQuantity(
                               item.product.id,
                               Math.max(0, item.quantity - 1),
-                              item.size || undefined
+                              item.size || undefined,
+                              item.productColorId || undefined
                             )
                           }
                           className="rounded-lg bg-secondary p-2 transition-colors hover:bg-muted"
@@ -146,7 +149,8 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
                             updateQuantity(
                               item.product.id,
                               item.quantity + 1,
-                              item.size || undefined
+                              item.size || undefined,
+                              item.productColorId || undefined
                             )
                           }
                           className="rounded-lg bg-secondary p-2 transition-colors hover:bg-muted"
@@ -157,7 +161,7 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
 
                         <button
                           onClick={() =>
-                            removeFromCart(item.product.id, item.size || undefined)
+                            removeFromCart(item.product.id, item.size || undefined, item.productColorId || undefined)
                           }
                           className="ml-auto rounded-lg p-2 text-destructive transition-colors hover:bg-destructive/10"
                           aria-label="Eliminar del carrito"

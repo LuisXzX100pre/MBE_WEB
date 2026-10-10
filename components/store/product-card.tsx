@@ -4,10 +4,12 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
+import { productStock, productImage, type ColorVariant } from '@/lib/product-variants'
 import { useCart } from '@/contexts/cart-context'
 import { ShoppingBag, Plus, Lock } from 'lucide-react'
 
 interface Product {
+  colors?: ColorVariant[]
   id: string
   name: string
   price: number
@@ -52,22 +54,16 @@ function isLockedDrop(product: Product) {
   return releaseDate.getTime() > Date.now()
 }
 
-function getTotalStock(product: Product) {
-  if (product.sizes && product.sizes.length > 0) {
-    return product.sizes.reduce((acc, size) => acc + size.stock, 0)
-  }
-
-  return product.stock ?? 0
-}
 
 export function ProductCard({ product }: ProductCardProps) {
+  const image = productImage(product)
   const router = useRouter()
   const { addToCart } = useCart()
   const [loading, setLoading] = useState(false)
 
   const lockedDrop = isLockedDrop(product)
   const releaseLabel = formatReleaseDate(product.releaseAt)
-  const totalStock = useMemo(() => getTotalStock(product), [product])
+  const totalStock = useMemo(() => productStock(product), [product])
   const isSoldOut = totalStock <= 0
   const showLockedState = lockedDrop && !isSoldOut
 
@@ -79,6 +75,7 @@ export function ProductCard({ product }: ProductCardProps) {
       return
     }
 
+    if (product.colors?.length || product.sizes?.length) { router.push(`/productos/${product.id}`); return }
     setLoading(true)
 
     const result = await addToCart(product.id)
@@ -94,9 +91,9 @@ export function ProductCard({ product }: ProductCardProps) {
     <Link href={`/productos/${product.id}`} className="group block">
       <div className="overflow-hidden rounded-[1.6rem] border border-white/10 bg-card shadow-[0_14px_50px_rgba(0,0,0,0.18)] transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-[0_20px_70px_rgba(0,0,0,0.26)]">
         <div className="relative aspect-[3/4] overflow-hidden">
-          {product.images[0] ? (
+          {image ? (
             <Image
-              src={product.images[0].url}
+              src={image}
               alt={product.name}
               fill
               className={`object-cover transition-transform duration-500 group-hover:scale-[1.04] ${
@@ -161,7 +158,7 @@ export function ProductCard({ product }: ProductCardProps) {
             <button
               onClick={handleAddToCart}
               disabled={loading}
-              aria-label={`Agregar ${product.name} al carrito`}
+              aria-label={product.colors?.length || product.sizes?.length ? `Elegir opciones de ${product.name}` : `Agregar ${product.name} al carrito`}
               className="absolute bottom-4 right-4 z-20 rounded-full border border-white/10 bg-white p-3 text-black opacity-0 shadow-xl transition-all duration-300 hover:scale-110 group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Plus className="h-5 w-5" />

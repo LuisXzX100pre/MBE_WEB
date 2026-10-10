@@ -1,86 +1,36 @@
-// components/store/community-section.tsx
-'use client'
+import Link from 'next/link'
+import { ArrowUpRight } from 'lucide-react'
 
-import { useState } from 'react'
-import { X, Wrench } from 'lucide-react'
-
-export function CommunitySection() {
-  const [showModal, setShowModal] = useState(false)
-  const [email, setEmail] = useState('')
-
-  const handleClick = () => {
-    console.log("[v0] Suscribirse clicked, opening modal")
-    setShowModal(true)
-  }
+export function CommunitySection({ communityCount }: { communityCount: number }) {
+  const count = communityCount.toLocaleString('es-MX')
+  const membershipLabel = communityCount === 1
+    ? '1 persona está adentro'
+    : count + ' personas están adentro'
 
   return (
-    <>
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-card">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Unete a la comunidad MBE
-          </h2>
-          <p className="text-muted-foreground mb-8">
-            Se el primero en conocer nuevos drops y ofertas exclusivas.
+    <section className="px-2 pb-2 pt-6 text-center text-white sm:px-8 sm:pb-4 sm:pt-8 md:pb-6 md:pt-12">
+      <div className="mx-auto max-w-2xl">
+        <h2 className="text-xl font-black uppercase tracking-tight sm:text-3xl md:text-4xl">
+          MBE Community
+        </h2>
+        <p className="mx-auto mt-2 max-w-xs text-xs leading-5 text-white/50 sm:max-w-lg sm:text-sm sm:leading-6">
+          Adelantos, procesos y beneficios para los que están dentro.
+        </p>
+        <div className="mt-5 flex flex-col items-center sm:mt-7">
+          <Link
+            href="/comunidad"
+            prefetch={false}
+            className="inline-flex min-h-11 items-center justify-center gap-4 border border-white/30 px-6 py-3 text-[10px] font-bold uppercase tracking-[0.2em] transition-colors hover:bg-white hover:text-black sm:text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+          >
+            Comunidad Adentro
+            <ArrowUpRight size={16} aria-hidden="true" />
+          </Link>
+          <p className="mt-3 flex items-center justify-center gap-2 text-[10px] text-white/40 sm:text-xs">
+            <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500 motion-safe:animate-pulse motion-safe:[animation-duration:3s]" />
+            <span>{membershipLabel}</span>
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
-            <input
-              type="text"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Tu email"
-              className="flex-1 px-4 py-3 bg-secondary border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-            <button
-              type="button"
-              onClick={handleClick}
-              className="px-6 py-3 bg-primary text-primary-foreground font-medium rounded-lg hover:opacity-90 transition-opacity"
-            >
-              Suscribirse
-            </button>
-          </div>
         </div>
-      </section>
-
-      {/* Modal de Mantenimiento */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-            onClick={() => setShowModal(false)}
-          />
-
-          {/* Modal Content */}
-          <div className="relative bg-card border border-border rounded-2xl p-8 max-w-md mx-4 shadow-2xl">
-            <button
-              onClick={() => setShowModal(false)}
-              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="text-center">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Wrench className="w-8 h-8 text-primary" />
-              </div>
-
-              <h3 className="text-2xl font-bold mb-3">
-                Muy pronto
-              </h3>
-
-              <p className="text-muted-foreground mb-6">
-                La comunidad MBE esta actualmente en mantenimiento. Estamos trabajando para traerte una experiencia increible.
-              </p>
-
-              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
-                <span>En mantenimiento</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+      </div>
+    </section>
   )
 }
