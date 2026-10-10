@@ -1,3 +1,4 @@
+import { validateCommunityPayment, consumeCommunityBenefit, moneyCents } from '@/lib/community/benefits'
 import { readCartSnapshotMetadata } from '@/lib/checkout-variants'
 // app/api/webhooks/stripe/route.ts
 import { headers } from 'next/headers'
@@ -299,10 +300,11 @@ async function createFallbackOrderFromSucceededPayment(
     throw new Error('Faltan datos para crear la orden fallback desde Stripe')
   }
 
-  const subtotal = Number(paymentIntent.metadata.subtotal || 0)
+  const benefit = validateCommunityPayment(paymentIntent.metadata, paymentIntent.amount_received ?? paymentIntent.amount)
+  const subtotal = Number(paymentIntent.metadata.originalSubtotal || paymentIntent.metadata.subtotal || 0)
   const shippingCost = Number(paymentIntent.metadata.shippingCost || 0)
   const total =
-    Number(paymentIntent.metadata.total || 0) ||
+    (paymentIntent.amount_received ?? paymentIntent.amount) / 100 || Number(paymentIntent.metadata.total || 0) ||
     cartItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0) +
       shippingCost
 
@@ -374,6 +376,7 @@ async function createFallbackOrderFromSucceededPayment(
       },
     })
 
+    await consumeCommunityBenefit(tx, userId, benefit)
     return createdOrder
   })
 
@@ -400,10 +403,12 @@ async function handleSucceeded(paymentIntent: Stripe.PaymentIntent) {
   }
 
   const previousStatus = existingPayment.order.status
-
+  const benefit = validateCommunityPayment(paymentIntent.metadata, paymentIntent.amount_received ?? paymentIntent.amount)
+  if (benefit && (paymentIntent.metadata.userId !== existingPayment.order.userId || moneyCents(existingPayment.order.subtotal) !== moneyCents(Number(paymentIntent.metadata.originalSubtotal)) || moneyCents(existingPayment.order.shippingCost) !== moneyCents(Number(paymentIntent.metadata.shippingCost)) || moneyCents(existingPayment.order.total) !== (paymentIntent.amount_received ?? paymentIntent.amount))) throw new Error('El beneficio no coincide con la orden pagada')
+  let didComplete = false
   await prisma.$transaction(async (tx) => {
-    await tx.payment.update({
-      where: { id: existingPayment.id },
+    const claimed = await tx.payment.updateMany({
+      where: { id: existingPayment.id, status: { not: 'COMPLETED' } },
       data: {
         provider: 'stripe',
         status: 'COMPLETED',
@@ -419,6 +424,9 @@ async function handleSucceeded(paymentIntent: Stripe.PaymentIntent) {
       },
     })
 
+    if (!claimed.count) return
+    await consumeCommunityBenefit(tx, existingPayment.order.userId, benefit)
+    didComplete = true
     if (previousStatus !== 'PAID') {
       await tx.order.update({
         where: { id: existingPayment.orderId },
@@ -430,7 +438,7 @@ async function handleSucceeded(paymentIntent: Stripe.PaymentIntent) {
   await clearCartForUser(existingPayment.order.userId)
   await syncInventoryByStatus(existingPayment.orderId, 'PAID')
 
-  if (previousStatus !== 'PAID') {
+  if (didComplete && previousStatus !== 'PAID') {
     await sendOrderStatusNotifications({
       orderId: existingPayment.orderId,
       previousStatus,
@@ -444,7 +452,7 @@ async function handleSucceeded(paymentIntent: Stripe.PaymentIntent) {
 async function handleProcessing(paymentIntent: Stripe.PaymentIntent) {
   const existingPayment = await findExistingPaymentFromIntent(paymentIntent)
 
-  if (!existingPayment) return
+  if (!existingPayment || existingPayment.status === 'COMPLETED') return
 
   const previousStatus = existingPayment.order.status
   const nextStatus = previousStatus === 'PENDING' ? 'CONFIRMED' : previousStatus
@@ -487,7 +495,7 @@ async function handleProcessing(paymentIntent: Stripe.PaymentIntent) {
 async function handleFailedOrCanceled(paymentIntent: Stripe.PaymentIntent) {
   const existingPayment = await findExistingPaymentFromIntent(paymentIntent)
 
-  if (!existingPayment) return
+  if (!existingPayment || existingPayment.status === 'COMPLETED') return
 
   const previousStatus = existingPayment.order.status
   let didCancelOrder = false

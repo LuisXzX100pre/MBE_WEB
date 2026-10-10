@@ -1,3 +1,4 @@
+import { resolveCommunityBenefit, communityAmounts, communityBenefitMetadata, moneyCents } from '@/lib/community/benefits'
 import { orderSelectionSnapshot, cartSnapshotMetadata } from '@/lib/checkout-variants'
 import { productColorsInclude } from '@/lib/product-queries'
 import { validateSelection, ProductSelectionError } from '@/lib/product-variants'
@@ -10,6 +11,7 @@ import { resolveCheckoutShipping, CheckoutShippingError } from '@/lib/shipping/c
 import type { LocalDeliveryLike } from '@/lib/local-delivery'
 
 type CreatePaymentIntentBody = {
+  preview?: boolean
   paymentIntentId?: string
 
   recipient: string
@@ -122,6 +124,7 @@ export async function POST(request: Request) {
 
     const body = (await request.json()) as CreatePaymentIntentBody
 
+    const preview = body.preview === true
     const paymentIntentId = normalizeText(body.paymentIntentId)
     const recipient = normalizeText(body.recipient)
     const phone = normalizeText(body.phone)
@@ -140,7 +143,7 @@ export async function POST(request: Request) {
 
     const rawSelectedShippingOption = body.selectedShippingOption
 
-    if (!recipient || !phone || !email || !cardholderName) {
+    if (!recipient || !phone || !email || (!preview && !cardholderName)) {
       return NextResponse.json(
         {
           error: 'Nombre, teléfono, correo y nombre del titular son requeridos',
@@ -188,10 +191,10 @@ export async function POST(request: Request) {
 
     for (const item of cart.items) validateSelection(item.product, item.productColorId, item.size, item.quantity)
 
-    const subtotal = cart.items.reduce(
+    const subtotal = moneyCents(cart.items.reduce(
       (sum, item) => sum + item.quantity * item.product.price,
       0
-    )
+    )) / 100
 
     if (subtotal <= 0) {
       return NextResponse.json(
@@ -212,7 +215,10 @@ export async function POST(request: Request) {
       })
     const shippingCost = selectedShippingOption.total
 
-    const total = subtotal + shippingCost
+    const benefit = await resolveCommunityBenefit(user.id)
+    const amounts = communityAmounts(subtotal, shippingCost, benefit)
+    const total = amounts.total
+    const benefitMetadata = communityBenefitMetadata(benefit, amounts)
 
     if (!Number.isFinite(total) || total <= 0) {
       return NextResponse.json(
@@ -220,6 +226,8 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+
+    if (preview) return NextResponse.json({ success: true, benefit, amounts }, { headers: { 'Cache-Control': 'private, no-store' } })
 
     const cartSnapshot = cart.items.map(orderSelectionSnapshot)
     const snapshotMetadata = cartSnapshotMetadata(cartSnapshot)
@@ -323,6 +331,7 @@ export async function POST(request: Request) {
           shippingAddressJson: JSON.stringify(shippingMetadataAddress),
           shippingQuoteJson: JSON.stringify(selectedShippingOption),
           ...snapshotMetadata,
+          ...benefitMetadata,
         },
       })
 
@@ -423,6 +432,7 @@ export async function POST(request: Request) {
           shippingAddressJson: JSON.stringify(shippingMetadataAddress),
           shippingQuoteJson: JSON.stringify(selectedShippingOption),
           ...snapshotMetadata,
+          ...benefitMetadata,
         },
       })
 
@@ -446,14 +456,8 @@ export async function POST(request: Request) {
       clientSecret,
       paymentIntentId: finalPaymentIntentId,
       orderId,
-      amounts: {
-        subtotal,
-        shippingCost,
-        total,
-        subtotalCents: amountToStripeCents(subtotal),
-        shippingCostCents: amountToStripeCents(shippingCost),
-        totalCents: amountToStripeCents(total),
-      },
+      benefit,
+      amounts,
       shipping: {
         recipient,
         address: shippingAddressText,

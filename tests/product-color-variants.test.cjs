@@ -255,7 +255,7 @@ test('migration backfills non-null identities and preserves legacy rows, history
 function checkoutFixture(db, changes = {}) {
   const stripeCalls=[]
   const paymentIntent={id:'pi_test',client_secret:'secret_test'}
-  const prisma={...Object.fromEntries(['product','order','payment','cartItem'].map(key=>[key,db.prisma[key]])),
+  const prisma={communityWheelSpin:{findMany:async()=>[]},communityTicket:{findMany:async()=>[]},...Object.fromEntries(['product','order','payment','cartItem'].map(key=>[key,db.prisma[key]])),
     $transaction:db.prisma.$transaction,
     cart:{findUnique:async()=>({id:'cart',items:changes.items||['crudo','negro'].map(productColorId=>({id:productColorId,productColorId,size:'M',quantity:1,product:db.state.products[0]}))})},
     payment:{update:args=>db.prisma.payment.update(args),findFirst:async()=>changes.existingPayment||null},

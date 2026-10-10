@@ -23,7 +23,7 @@ export function CommunityEvents() {
     {tickets.length > 0 && <div className="mt-12"><h3 className="mb-6 text-xl font-black uppercase">Tus tickets</h3><div className="grid gap-5 sm:grid-cols-2">{tickets.map(t => <div key={t.id} className="relative overflow-hidden border border-dashed border-white/30 p-6">
       <p className="text-[10px] uppercase tracking-widest text-white/40">{t.event.title}</p><p className="my-4 text-4xl font-black">{t.discountPercent}% OFF</p><code className="break-all text-sm">{t.code}</code>
       <p className="mt-5 text-xs text-white/40">{t.usedAt ? 'Utilizado' : t.expiresAt && new Date(t.expiresAt) <= new Date() ? 'Expirado' : 'Guardado en tu cuenta'}{t.expiresAt && ' / vence ' + new Date(t.expiresAt).toLocaleString('es-MX')}</p>
-      <p className="mt-2 text-[10px] text-white/35">Aun no canjeable en checkout.</p>
+      <p className="mt-2 text-[10px] text-white/35">{t.usedAt ? 'Utilizado' : t.expiresAt && new Date(t.expiresAt) <= new Date() ? 'Expirado' : 'Se aplicará automáticamente en tu próxima compra mientras siga vigente.'}</p>
     </div>)}</div></div>}
   </section>
 }

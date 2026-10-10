@@ -47,7 +47,7 @@ export function WheelManager() {
   const totalWeight = form.prizeWeights.reduce((sum, p) => sum + p.weight, 0)
   return <section aria-busy={busy}>
     <h2 className="mb-3 text-2xl font-black uppercase">Campañas / ruleta</h2>
-    <p className="mb-8 max-w-xl text-xs leading-6 text-white/45">Selecciona una campaña y dale un motivo al giro. Activarla desactiva las demás, incluso si su inicio es futuro. Cada miembro conserva un resultado por campaña.</p>
+    <p className="mb-8 max-w-xl text-xs leading-6 text-white/45">Selecciona una campaña y dale un motivo al giro. Activa significa seleccionada y visible; activarla desactiva las demás, incluso si su inicio es futuro. Inicio desbloquea el giro y fin retira la campaña de la vista. Cada miembro conserva un resultado por campaña.</p>
     <form onSubmit={save} className="mb-10 grid gap-4 sm:grid-cols-2">
       <label className="text-xs text-white/50">Nombre interno<input required disabled={busy} maxLength={120} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className={field + ' mt-2'} /></label>
       <label className="text-xs text-white/50">Título visible<input required disabled={busy} maxLength={160} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className={field + ' mt-2'} /></label>

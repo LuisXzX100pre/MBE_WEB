@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import type { CommunityBenefit, CheckoutAmounts } from '@/lib/community/benefits'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { cartImage } from '@/lib/product-variants'
 import Link from 'next/link'
@@ -53,6 +54,8 @@ interface CartItem {
 }
 
 interface CheckoutFormProps {
+  initialBenefit?: CommunityBenefit | null
+  initialDiscountAmount?: number
   items: CartItem[]
   total: number
 }
@@ -493,7 +496,7 @@ function ShippingOptionModal({
   )
 }
 
-function CheckoutInner({ items, total }: CheckoutFormProps) {
+function CheckoutInner({ items, total, initialBenefit = null, initialDiscountAmount = 0 }: CheckoutFormProps) {
   const stripe = useStripe()
   const elements = useElements()
 
@@ -535,14 +538,19 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
   const [error, setError] = useState<string | null>(null)
   const [openSection, setOpenSection] = useState<OpenSection>('shipping')
 
-  const subtotal = useMemo(() => total, [total])
+  const [benefit, setBenefit] = useState(initialBenefit)
+  const [serverAmounts, setServerAmounts] = useState<CheckoutAmounts | null>(null)
+  const [previewBusy, setPreviewBusy] = useState(false)
+  const previewSequence = useRef(0)
+  const subtotal = serverAmounts?.subtotal ?? total
+  const discountAmount = serverAmounts?.discountAmount ?? initialDiscountAmount
   const shippingCost = selectedShippingOption?.total ?? 0
-  const grandTotal = subtotal + shippingCost
+  const grandTotal = selectedShippingOption && serverAmounts ? serverAmounts.total : Math.round((subtotal - discountAmount + shippingCost) * 100) / 100
 
   const subtotalFormatted = useMemo(() => money(subtotal), [subtotal])
   const shippingFormatted = useMemo(
-    () => formatShippingAmount(selectedShippingOption),
-    [selectedShippingOption]
+    () => serverAmounts && selectedShippingOption ? money(serverAmounts.shippingCost) : formatShippingAmount(selectedShippingOption),
+    [selectedShippingOption, serverAmounts]
   )
   const grandTotalFormatted = useMemo(() => money(grandTotal), [grandTotal])
 
@@ -692,11 +700,21 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
     }
   }
 
-  const handleConfirmShippingOption = (option: ShippingOption) => {
+  const checkoutPayload = (option = selectedShippingOption) => ({ paymentIntentId, recipient, phone, email, cardholderName, postalCode, state: stateName, city, colony, street, extNumber, intNumber, reference, furtherInformation, selectedShippingOption: option })
+  const handleConfirmShippingOption = async (option: ShippingOption) => {
+    const sequence = ++previewSequence.current
     setSelectedShippingOption(option)
     setActiveShippingBucket(option.bucket)
     setShippingModalOpen(false)
-    setOpenSection('payment')
+    setServerAmounts(null); setPreviewBusy(true); setError(null)
+    try {
+      const response = await fetch('/api/stripe/create-payment-intent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...checkoutPayload(option), preview: true }) })
+      const data = await response.json()
+      if (sequence !== previewSequence.current) return
+      if (!response.ok) throw new Error(data.error || 'No se pudo verificar el total')
+      setServerAmounts(data.amounts); setBenefit(data.benefit); setOpenSection('payment')
+    } catch (e) { if (sequence === previewSequence.current) setError(e instanceof Error ? e.message : 'No se pudo verificar el total') }
+    finally { if (sequence === previewSequence.current) setPreviewBusy(false) }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -730,6 +748,7 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
       return
     }
 
+    if (previewBusy || !serverAmounts) { setError('Verifica el envío y el total antes de pagar.'); return }
     setLoading(true)
     setError(null)
 
@@ -768,6 +787,8 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
         setPaymentIntentId(data.paymentIntentId)
       }
 
+      setServerAmounts(data.amounts); setBenefit(data.benefit)
+      if (data.amounts.totalCents !== serverAmounts.totalCents) throw new Error('Tu beneficio o total cambió. Revisa el nuevo importe y vuelve a pulsar Pagar.')
       const result = await stripe.confirmCardPayment(data.clientSecret, {
         payment_method: {
           card: cardNumberElement,
@@ -871,8 +892,11 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
 
           <div className="space-y-3 rounded-2xl border border-border/70 bg-background/40 p-4">
             <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <span>Subtotal</span>
+              <span>Productos</span>
               <span>{subtotalFormatted}</span>
+            </div>
+            {discountAmount > 0 && benefit && <div className="flex items-center justify-between gap-3 text-sm text-white"><span>{benefit.label}</span><span>-{money(discountAmount)}</span></div>}
+            <div className="text-xs text-muted-foreground" aria-live="polite">{previewBusy ? 'Verificando beneficio y total...' : ''}
             </div>
 
             <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -1270,7 +1294,7 @@ function CheckoutInner({ items, total }: CheckoutFormProps) {
                 municipalitiesLoading ||
                 !stripe ||
                 !elements ||
-                !selectedShippingOption
+                !selectedShippingOption || previewBusy || !serverAmounts
               }
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-4 font-semibold text-black transition hover:opacity-90 disabled:opacity-50"
             >

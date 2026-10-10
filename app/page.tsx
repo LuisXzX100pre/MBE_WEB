@@ -10,7 +10,7 @@ import {
   HomeHeroSwitcher,
 } from '@/components/store/home-hero-switcher'
 import { buildHeroSlides } from '@/lib/home-hero-slides'
-import { liveCampaignWhere } from '@/lib/community/wheel'
+import { visibleCampaignWhere } from '@/lib/community/wheel'
 import { prisma } from '@/lib/prisma'
 import { releaseExpiredDrops } from '@/lib/release-drops'
 import { isWithinDropWindow } from '@/lib/drop'
@@ -155,7 +155,7 @@ export default async function HomePage() {
   const communityDisplayCount = COMMUNITY_DISPLAY_BASELINE + communityCount
 
   const communityCampaign = !nextDrop && !recentDrop ? await prisma.communityWheelCampaign.findFirst({
-    where: liveCampaignWhere(), orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    where: visibleCampaignWhere(), orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     select: { name: true, title: true, subtitle: true, description: true, note: true },
   }) : null
   const heroSlides = buildHeroSlides(promoProducts, communityCampaign)

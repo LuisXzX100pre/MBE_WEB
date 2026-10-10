@@ -63,7 +63,7 @@ for (const [name, nextDrop, recentDrop, expected] of [['next has priority over r
 for (const hasDrop of [false, true]) test('Home campaign lookup is read-only and only needed for carousel: drop=' + hasDrop, async () => {
   let campaignReads = 0, props
   const { default: Home } = load('app/page.tsx', {
-    'next/link': Link, 'next/image': Image, '@/lib/home-hero-slides': hero, '@/lib/community/wheel': { liveCampaignWhere: () => ({ active: true }) },
+    'next/link': Link, 'next/image': Image, '@/lib/home-hero-slides': hero, '@/lib/community/wheel': { visibleCampaignWhere: () => ({ active: true }) },
     '@/lib/release-drops': { releaseExpiredDrops: async () => {} }, '@/lib/drop': { isWithinDropWindow: () => false },
     '@/lib/prisma': { prisma: { product: { findMany: async args => { if(args.take === 3) { assert.equal(args.where.status, 'ACTIVE'); assert.equal(args.include.sizes,true); return [product()] } return [] }, findFirst: async () => hasDrop ? drop : null }, category: { findMany: async () => [] }, communityMembership: { count: async () => 3 }, communityWheelCampaign: { findFirst: async args => { campaignReads++; assert.equal(args.where.active,true); assert.deepEqual(Object.keys(args.select).sort(), ['description','name','note','subtitle','title']); return campaign } } } },
     '@/components/store/header': { Header: () => null }, '@/components/store/footer': { Footer: () => null }, '@/components/store/product-card': { ProductCard: () => null }, '@/components/store/community-section': { CommunitySection: () => null }, '@/components/store/home-hero-switcher': { HomeHeroSwitcher: value => { props = value; return React.createElement('div',null,'HERO') } },
@@ -146,4 +146,24 @@ test('metadata title and all icon URLs use MBE; App Router icon exactly matches 
 test('available product renders availability and reduced-motion CSS suppresses transitions', () => {
   const ui=carouselHarness(hero.buildHeroSlides([product()],null)); assert.ok(ui.html().includes('Disponible')); assert.ok(!ui.html().includes('SOLD OUT')); ui.unmount()
   const css=fs.readFileSync('components/store/home-hero-carousel.module.css','utf8'); assert.ok(css.includes('prefers-reduced-motion: reduce')); assert.ok(css.includes('animation: none'))
+})
+
+test('Home uses visible future campaign copy without enabling a spin or changing hero priority',async()=>{
+  const scheduled={...campaign,startsAt:'2099-01-01T00:00:00Z',endsAt:'2099-01-02T00:00:00Z'}
+  const wheel=load('lib/community/wheel.ts',{'@/lib/prisma':{prisma:{}}})
+  let props,reads=0
+  const {default:Home}=load('app/page.tsx',{
+    'next/link':Link,'next/image':Image,'@/lib/community/wheel':{visibleCampaignWhere:wheel.visibleCampaignWhere},'@/lib/home-hero-slides':hero,
+    '@/lib/release-drops':{releaseExpiredDrops:async()=>{}},'@/lib/drop':{isWithinDropWindow:()=>false},
+    '@/lib/prisma':{prisma:{product:{findMany:async()=>[],findFirst:async()=>null},category:{findMany:async()=>[]},communityMembership:{count:async()=>3},communityWheelCampaign:{findFirst:async({where})=>{
+      reads++;assert.equal(where.active,true);assert.ok(!JSON.stringify(where).includes('startsAt'))
+      assert.ok(new Date(scheduled.endsAt)>where.AND[0].OR[1].endsAt.gt);return scheduled
+    }}}},
+    '@/components/store/header':{Header:()=>null},'@/components/store/footer':{Footer:()=>null},'@/components/store/product-card':{ProductCard:()=>null},'@/components/store/community-section':{CommunitySection:()=>null},
+    '@/components/store/home-hero-switcher':{HomeHeroSwitcher:value=>{props=value;return React.createElement('div',null,'HERO')}},
+  })
+  renderToStaticMarkup(await Home());assert.equal(reads,1)
+  const slide=props.heroSlides.find(s=>s.type==='COMMUNITY')
+  assert.equal(slide.title,scheduled.title);assert.ok(slide.subtitle.includes(scheduled.description));assert.equal(slide.ctaHref,'/comunidad')
+  assert.equal(props.nextDrop,null);assert.equal(props.recentDrop,null)
 })

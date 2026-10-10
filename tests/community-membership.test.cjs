@@ -82,7 +82,7 @@ test('Home counts memberships server-side and renders Community before the exist
     '@/components/store/community-section': { CommunitySection },
     '@/components/store/home-hero-switcher': { HomeHeroSwitcher: placeholder('DROP HERO') },
     '@/lib/home-hero-slides': load('lib/home-hero-slides.ts', { './social-links': load('lib/social-links.ts') }),
-    '@/lib/community/wheel': { liveCampaignWhere: () => ({ active: true }) },
+    '@/lib/community/wheel': { visibleCampaignWhere: () => ({ active: true }) },
     '@/lib/prisma': { prisma: {
       communityWheelCampaign: { findFirst: async () => null },
       product: { findMany: async () => [], findFirst: async () => null },

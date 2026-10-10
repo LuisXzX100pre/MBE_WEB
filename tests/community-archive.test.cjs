@@ -105,7 +105,7 @@ for(const [options,status] of [[{failBlob:true},502],[{oidcMissing:true},503],[{
 test('recent/archive sections are distinct; opening archive preserves post/comment props',()=>{
   const React=require('react'),{renderToStaticMarkup}=require('react-dom/server')
   let slot=0;const states=[]
-  const load=loader({react:{...React,useState(initial){const i=slot++;if(!(i in states))states[i]=initial;return[states[i],value=>{states[i]=typeof value==='function'?value(states[i]):value}]}},
+  const load=loader({react:{...React,useRef(initial){const i=slot++;if(!(i in states))states[i]={current:initial};return states[i]},useState(initial){const i=slot++;if(!(i in states))states[i]=initial;return[states[i],value=>{states[i]=typeof value==='function'?value(states[i]):value}]}},
     './community-post':{CommunityPost:({post})=>React.createElement('article',{'data-post':post.id},post.title+' '+post.comments[0].text)}})
   const {CommunityFeed}=load('components/community/community-feed.tsx')
   const props={initialRecentPosts:[row(4),row(3),row(2)],initialPosts:[row(1)],initialCursor:null}
@@ -118,5 +118,5 @@ test('recent/archive sections are distinct; opening archive preserves post/comme
   const open=elements(tree).find(e=>e.type==='button'&&e.props['aria-controls']==='archivo-publicaciones')
   open.props.onClick();tree=render();html=renderToStaticMarkup(tree)
   assert.ok(html.includes('data-post="0001"'));assert.equal((html.match(/data-post=/g)||[]).length,4)
-  assert.ok(html.includes('Comentario'));assert.equal(elements(tree).find(e=>e.type==='button').props['aria-expanded'],true)
+  assert.ok(html.includes('Comentario'));assert.equal(elements(tree).find(e=>e.type==='button'&&e.props['aria-controls']==='archivo-publicaciones').props['aria-expanded'],true)
 })

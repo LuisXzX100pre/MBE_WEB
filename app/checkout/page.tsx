@@ -1,3 +1,4 @@
+import { resolveCommunityBenefit, communityAmounts } from '@/lib/community/benefits'
 import { cartColorInclude } from '@/lib/product-queries'
 // app/checkout/page.tsx
 import { redirect } from 'next/navigation'
@@ -45,6 +46,9 @@ export default async function CheckoutPage() {
     0
   )
 
+  const initialBenefit = await resolveCommunityBenefit(user.id)
+  const initialAmounts = communityAmounts(total, 0, initialBenefit)
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -52,7 +56,7 @@ export default async function CheckoutPage() {
       <main className="flex-1 pt-24 pb-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 className="text-3xl font-bold mb-8">Checkout</h1>
-          <CheckoutForm items={cart.items} total={total} />
+          <CheckoutForm items={cart.items} total={total} initialBenefit={initialBenefit} initialDiscountAmount={initialAmounts.discountAmount} />
         </div>
       </main>
 

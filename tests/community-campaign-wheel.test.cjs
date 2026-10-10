@@ -7,20 +7,34 @@ const { renderToStaticMarkup } = require('react-dom/server')
 function load(file, dependencies = {}) {
   const mod = { exports: {} }
   const js = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText
-  new Function('require', 'exports', js)(name => name === 'server-only' ? {} : dependencies[name] || require(name), mod.exports)
+  new Function('require', 'exports', 'Date', js)(name => name === 'server-only' ? {} : dependencies[name] || require(name), mod.exports, dependencies.__Date || Date)
   return mod.exports
 }
 const validation = load('lib/community/validation.ts')
 const config = load('lib/community/wheel-config.ts', { './validation': validation })
 class KnownError extends Error { constructor(code) { super(code); this.code = code } }
 const input = overrides => ({ name: 'Interna', title: 'THE FIRST ONES IN', subtitle: 'Solo adentro', description: 'Un beneficio del próximo movimiento.', note: null, active: true, startsAt: null, endsAt: null, ...overrides })
-function store() {
+function store(Clock = Date) {
   let state = { campaigns: new Map(), spins: new Map() }, version = 0, sequence = 0, draws = 0, conflicts = 0
   function adapter(get, write) {
     return {
       communityWheelCampaign: {
         findUnique: async ({ where }) => get().campaigns.get(where.id) || null,
-        findFirst: async ({ where }) => [...get().campaigns.values()].filter(c => c.active && (!c.startsAt || c.startsAt <= where.AND[0].OR[1].startsAt.lte) && (!c.endsAt || c.endsAt > where.AND[1].OR[1].endsAt.gt)).sort((a,b) => b.createdAt - a.createdAt || b.id.localeCompare(a.id))[0] || null,
+        findFirst: async ({ where }) => {
+          function matches(c, w) {
+            if (w.active !== undefined && c.active !== w.active) return false
+            if (typeof w.id === 'string' && c.id !== w.id) return false
+            if (w.AND && !w.AND.every(part => matches(c, part))) return false
+            if (w.OR && !w.OR.some(part => matches(c, part))) return false
+            for (const key of ['startsAt', 'endsAt']) {
+              if (w[key] === null && c[key] !== null) return false
+              if (w[key]?.lte && (!c[key] || c[key] > w[key].lte)) return false
+              if (w[key]?.gt && (!c[key] || c[key] <= w[key].gt)) return false
+            }
+            return true
+          }
+          return [...get().campaigns.values()].filter(c => matches(c, where)).sort((a,b) => b.createdAt - a.createdAt || b.id.localeCompare(a.id))[0] || null
+        },
         findMany: async () => [...get().campaigns.values()].map(c => ({ ...c, _count: { spins: [...get().spins.values()].filter(s => s.campaignId === c.id).length } })),
         updateMany: async ({ where, data }) => { let count = 0; for (const c of get().campaigns.values()) if (c.active && (!where.id || c.id !== where.id.not)) { Object.assign(c, data); count++ } if (count) write(); return { count } },
         create: async ({ data }) => { const row = { id: 'campaign-' + ++sequence, createdAt: new Date(), ...data }; get().campaigns.set(row.id, row); write(); return row },
@@ -43,7 +57,7 @@ function store() {
   }
   const deps = { '@/lib/prisma': { prisma }, './validation': validation, './wheel-config': config, '@prisma/client': { Prisma: { PrismaClientKnownRequestError: KnownError } } }
   const campaigns = load('lib/community/campaigns.ts', deps)
-  const wheel = load('lib/community/wheel.ts', { ...deps, crypto: { randomInt: () => { draws++; return 0 } } })
+  const wheel = load('lib/community/wheel.ts', { ...deps, __Date: Clock, crypto: { randomInt: () => { draws++; return 0 } } })
   return { campaigns, wheel, prisma, get state() { return state }, get draws() { return draws }, get conflicts() { return conflicts } }
 }
 test('campaign copy, periods and prize weights are validated server-side', () => {
@@ -59,7 +73,8 @@ test('manual selection respects start/end boundaries and ignores inactive campai
   await s.campaigns.saveCampaign({ active: false }, active.id)
   assert.equal((await s.wheel.wheelState('u')).campaign, null)
   await s.campaigns.saveCampaign({ active: true, startsAt: new Date(+now + 60000).toISOString(), endsAt: null }, active.id)
-  assert.equal((await s.wheel.wheelState('u')).campaign, null)
+  assert.equal((await s.wheel.wheelState('u')).campaign.id, active.id)
+  await assert.rejects(() => s.wheel.spinWheel('u'), e => e.status === 409 && e.message === 'La campaña todavía no inicia.')
   await s.campaigns.saveCampaign({ startsAt: null, endsAt: new Date(now - 1000).toISOString() }, active.id)
   await assert.rejects(() => s.wheel.spinWheel('u'), e => e.status === 409); assert.equal(s.draws, 0)
 })
@@ -84,7 +99,7 @@ test('weighted draw uses persisted ADMIN settings, and existing spin survives co
   const second = await s.wheel.spinWheel('u')
   assert.deepEqual(second.spin, first.spin); assert.equal(s.draws, 1); assert.equal(second.campaign.title, 'NEW COPY')
   await s.campaigns.saveCampaign({ active: false }, c.id)
-  const closed = await s.wheel.wheelState('u'); assert.equal(closed.campaign, null); assert.deepEqual(closed.spin, first.spin)
+  const closed = await s.wheel.wheelState('u'); assert.equal(closed.campaign, null); assert.equal(closed.spin, null); assert.deepEqual([...s.state.spins.values()][0], first.spin)
   await assert.rejects(() => s.wheel.spinWheel('u'), e => e.status === 409)
 })
 test('concurrent spins keep exactly one persisted result per member/campaign', async () => {
@@ -122,7 +137,7 @@ test('existing spin renders result and usage state with no second-spin button', 
   const campaign = { id: 'c', name: 'Legacy', startsAt: null, endsAt: null }, spin = { id: 's', campaignId: 'c', discountPercent: 5, usedAt: null }
   const html = renderWheel({ campaign, spin }); assert.ok(html.includes('Ya participaste')); assert.ok(html.includes('5% OFF')); assert.ok(html.includes('sin utilizar')); assert.ok(!html.includes('<button'))
   assert.ok(renderWheel({ campaign, spin: { ...spin, usedAt: '2026-01-01' } }).includes('marcado como utilizado'))
-  assert.ok(renderWheel({ campaign: null, spin }).includes('Tu último resultado guardado'))
+  assert.ok(!renderWheel({ campaign: null, spin }).includes('5% OFF'))
 })
 test('Community page keeps membership gate and prioritizes campaign before archive/events', async () => {
   const { default: Page } = load('app/comunidad/page.tsx', {
@@ -160,4 +175,83 @@ test('Admin renders campaign copy, dates and four server-supported probabilities
   for (const label of ['Nombre interno', 'Título visible', 'Frase principal', 'Descripción / motivo', 'Nota breve', 'Inicio opcional', 'Fin opcional', 'Premios / probabilidades']) assert.ok(html.includes(label))
   assert.equal((html.match(/25.0% probabilidad/g) || []).length, 4)
   assert.ok(html.includes('grid-cols-2')); assert.ok(html.includes('sm:grid-cols-4'))
+})
+
+test('future selected campaign is visible but cannot spin; start opens and expiry hides without erasing history',async()=>{
+  const s=store(),now=Date.now()
+  const old=await s.campaigns.saveCampaign(input()),oldSpin=await s.wheel.spinWheel('u')
+  const future=await s.campaigns.saveCampaign(input({startsAt:new Date(now+60000).toISOString(),endsAt:new Date(now+120000).toISOString()}))
+  const state=await s.wheel.wheelState('u')
+  assert.equal(state.campaign.id,future.id);assert.equal(state.spin,null)
+  await assert.rejects(()=>s.wheel.spinWheel('u'),e=>e.status===409&&e.message==='La campaña todavía no inicia.')
+  assert.equal(s.state.spins.size,1);assert.equal(s.draws,1)
+  await s.campaigns.saveCampaign({startsAt:new Date(Date.now()-60000).toISOString()},future.id)
+  assert.equal((await s.wheel.spinWheel('u')).spin.campaignId,future.id)
+  await s.campaigns.saveCampaign({endsAt:new Date(Date.now()-1).toISOString()},future.id)
+  assert.deepEqual(await s.wheel.wheelState('u'),{campaign:null,spin:null})
+  await assert.rejects(()=>s.wheel.spinWheel('u'),e=>e.status===409)
+  assert.equal(s.state.spins.size,2);assert.deepEqual(s.state.spins.get('u:'+old.id),oldSpin.spin)
+})
+test('visible/live conditions use inclusive start and exclusive end',()=>{
+  const s=store(),now=new Date('2030-01-01T18:00:00Z')
+  const visible=s.wheel.visibleCampaignWhere(now),live=s.wheel.liveCampaignWhere(now)
+  assert.equal(visible.active,true);assert.ok(!JSON.stringify(visible).includes('startsAt'))
+  assert.deepEqual(visible.AND,[{OR:[{endsAt:null},{endsAt:{gt:now}}]}])
+  assert.deepEqual(live.AND[0],{OR:[{startsAt:null},{startsAt:{lte:now}}]})
+  assert.deepEqual(live.AND[1],visible.AND[0])
+})
+test('no start is immediately visible/spinnable; no end remains visible while selected',async()=>{
+  const s=store(),campaign=await s.campaigns.saveCampaign(input())
+  assert.equal((await s.wheel.wheelState('u')).campaign.id,campaign.id)
+  assert.equal((await s.wheel.spinWheel('u')).spin.campaignId,campaign.id)
+  await s.campaigns.saveCampaign({startsAt:'2099-01-01T00:00:00Z'},campaign.id)
+  assert.equal((await s.wheel.wheelState('u')).campaign.id,campaign.id)
+  await assert.rejects(()=>s.wheel.spinWheel('v'),e=>e.status===409)
+})
+test('scheduled UI keeps copy/prizes/wheel with disabled button/date; expiry removes wheel/result',()=>{
+  const now=Date.now(),campaign={id:'future',name:'Campaign',title:'PRÓXIMO MOVIMIENTO',subtitle:'Subtitle',description:'Description',note:'Note',startsAt:new Date(now+60000).toISOString(),endsAt:new Date(now+120000).toISOString()}
+  const html=renderWheel({campaign,spin:null})
+  for(const text of ['PRÓXIMO MOVIMIENTO','Subtitle','Description','Note','Disponible próximamente','Disponible el','2%','4%','5%','10%'])assert.ok(html.includes(text))
+  assert.match(html,/<button[^>]*disabled/);assert.ok(html.includes('conic-gradient'))
+  const expired=renderWheel({campaign:{...campaign,endsAt:new Date(now-1).toISOString()},spin:{campaignId:campaign.id,discountPercent:5}})
+  assert.ok(expired.includes('El próximo movimiento está por llegar.'))
+  assert.ok(!expired.includes('PRÓXIMO MOVIMIENTO'));assert.ok(!expired.includes('conic-gradient'));assert.ok(!expired.includes('5% OFF'))
+})
+test('selected future campaign never spins older overlapping active campaign',async()=>{
+  const s=store(),old=await s.campaigns.saveCampaign(input())
+  const future=await s.campaigns.saveCampaign(input({startsAt:'2099-01-01T00:00:00Z'}))
+  s.state.campaigns.get(old.id).active=true
+  s.state.campaigns.get(old.id).createdAt=new Date('2020-01-01')
+  assert.equal((await s.wheel.wheelState('u')).campaign.id,future.id)
+  await assert.rejects(()=>s.wheel.spinWheel('u'),e=>e.status===409)
+  assert.equal(s.draws,0)
+})
+test('server accepts exact startsAt and rejects/hides exact endsAt; POST preserves 409',async()=>{
+  const fixed=Date.parse('2030-01-01T18:00:00Z')
+  class FrozenDate extends Date { constructor(...args){super(...(args.length?args:[fixed]))} static now(){return fixed} }
+  const s=store(FrozenDate),campaign=await s.campaigns.saveCampaign(input({startsAt:new Date(fixed).toISOString(),endsAt:new Date(fixed+1000).toISOString()}))
+  assert.equal((await s.wheel.spinWheel('u')).spin.campaignId,campaign.id)
+  await s.campaigns.saveCampaign({startsAt:new Date(fixed-1000).toISOString(),endsAt:new Date(fixed).toISOString()},campaign.id)
+  assert.deepEqual(await s.wheel.wheelState('u'),{campaign:null,spin:null})
+  const route=load('app/api/community/wheel/route.ts',{
+    '@/lib/community/api':{member:async()=>({id:'u'}),api:async work=>{try{return Response.json(await work())}catch(e){return Response.json({error:e.message},{status:e.status||500})}}},
+    '@/lib/community/wheel':s.wheel,
+  })
+  assert.equal((await route.POST(new Request('https://mbe.test',{method:'POST'}))).status,409)
+})
+test('POST blocks a selected future campaign before drawing',async()=>{
+  const s=store();await s.campaigns.saveCampaign(input({startsAt:'2099-01-01T00:00:00Z'}))
+  const route=load('app/api/community/wheel/route.ts',{
+    '@/lib/community/api':{member:async()=>({id:'u'}),api:async work=>{try{return Response.json(await work())}catch(e){return Response.json({error:e.message},{status:e.status||500})}}},
+    '@/lib/community/wheel':s.wheel,
+  })
+  const response=await route.POST(new Request('https://mbe.test',{method:'POST'}))
+  assert.equal(response.status,409);assert.equal((await response.json()).error,'La campaña todavía no inicia.');assert.equal(s.draws,0);assert.equal(s.state.spins.size,0)
+})
+test('scheduled wheel always shows blocked cursor/button, including previously saved result; reaching start enables',()=>{
+ const campaign={id:'scheduled',name:'MBE',startsAt:new Date(Date.now()+60000).toISOString(),endsAt:'2099-01-01T00:00:00Z'}
+ const scheduled=renderWheel({campaign,spin:{id:'old',campaignId:campaign.id,discountPercent:10,usedAt:null}})
+ assert.ok(scheduled.includes('Disponible próximamente'));assert.ok(scheduled.includes('disabled:cursor-not-allowed'));assert.match(scheduled,/<button[^>]*disabled/)
+ const open=renderWheel({campaign:{...campaign,startsAt:new Date(Date.now()-1).toISOString()},spin:null})
+ assert.ok(open.includes('Desbloquear mi giro'));assert.ok(!/<button[^>]* disabled=/.test(open))
 })

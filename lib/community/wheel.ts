@@ -11,6 +11,9 @@ export function choosePrize(draw = randomInt, prizes = wheelPrizes) {
   for (const prize of prizes) { if (value < prize.weight) return prize.percent; value -= prize.weight }
   throw new Error('Invalid wheel weights')
 }
+export function visibleCampaignWhere(now = new Date()): Prisma.CommunityWheelCampaignWhereInput {
+  return { active: true, AND: [{ OR: [{ endsAt: null }, { endsAt: { gt: now } }] }] }
+}
 export function liveCampaignWhere(now = new Date()): Prisma.CommunityWheelCampaignWhereInput {
   return { active: true, AND: [
     { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
@@ -18,18 +21,21 @@ export function liveCampaignWhere(now = new Date()): Prisma.CommunityWheelCampai
   ] }
 }
 export async function wheelState(userId: string) {
-  const campaign = await prisma.communityWheelCampaign.findFirst({ where: liveCampaignWhere(), orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] })
+  const campaign = await prisma.communityWheelCampaign.findFirst({ where: visibleCampaignWhere(), orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] })
   const spin = campaign
     ? await prisma.communityWheelSpin.findUnique({ where: { userId_campaignId: { userId, campaignId: campaign.id } } })
-    : await prisma.communityWheelSpin.findFirst({ where: { userId }, orderBy: { createdAt: 'desc' } })
+    : null
   return { campaign, spin }
 }
 export async function spinWheel(userId: string) {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       return await prisma.$transaction(async tx => {
-        const campaign = await tx.communityWheelCampaign.findFirst({ where: liveCampaignWhere(), orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] })
-        if (!campaign) throw new CommunityError('No hay una campana disponible', 409)
+        const now = new Date()
+        const selected = await tx.communityWheelCampaign.findFirst({ where: visibleCampaignWhere(now), orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] })
+        if (!selected) throw new CommunityError('No hay una campaña disponible', 409)
+        const campaign = await tx.communityWheelCampaign.findFirst({ where: { ...liveCampaignWhere(now), id: selected.id }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] })
+        if (!campaign) throw new CommunityError('La campaña todavía no inicia.', 409)
         const previous = await tx.communityWheelSpin.findUnique({ where: { userId_campaignId: { userId, campaignId: campaign.id } } })
         if (previous) return { campaign, spin: previous }
         const spin = await tx.communityWheelSpin.create({ data: { userId, campaignId: campaign.id, discountPercent: choosePrize(randomInt, prizeConfig(campaign.prizeWeights)) } })
